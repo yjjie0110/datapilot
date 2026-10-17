@@ -191,17 +191,28 @@ settings = Settings()
 >
 > | 表名            | 作用                       | 关键字段                                                     |
 > | :-------------- | :------------------------- | :----------------------------------------------------------- |
-> | `Artist`        | 艺术家                     | `ArtistId`, `Name`                                           |
-> | `Album`         | 专辑                       | `AlbumId`, `Title`, `ArtistId`                               |
-> | `Track`         | 曲目                       | `TrackId`, `Name`, `AlbumId`, `MediaTypeId`, `GenreId`, `Composer`, `Milliseconds`, `Bytes`, `UnitPrice` |
-> | `Genre`         | 音乐流派                   | `GenreId`, `Name`                                            |
-> | `MediaType`     | 媒体类型                   | `MediaTypeId`, `Name`                                        |
-> | `Playlist`      | 播放列表                   | `PlaylistId`, `Name`                                         |
-> | `PlaylistTrack` | 播放列表与曲目的多对多关联 | `PlaylistId`, `TrackId`                                      |
-> | `Customer`      | 客户                       | `CustomerId`, `FirstName`, `LastName`, `Email`, `SupportRepId` |
-> | `Employee`      | 员工                       | `EmployeeId`, `FirstName`, `LastName`, `Title`, `ReportsTo`  |
-> | `Invoice`       | 发票/订单                  | `InvoiceId`, `CustomerId`, `InvoiceDate`, `BillingAddress`, `BillingCity`, `BillingCountry`, `Total` |
-> | `InvoiceLine`   | 发票明细                   | `InvoiceLineId`, `InvoiceId`, `TrackId`, `UnitPrice`, `Quantity` |
+> | `Artist`        | 艺术家                     | `ArtistId`(主键), `Name`(艺术家名称)                         |
+> | `Album`         | 专辑                       | `AlbumId`(主键), `Title`(专辑名称), `ArtistId`(外键，指向 `Artist.ArtistId`) |
+> | `Track`         | 曲目                       | `TrackId`(主键), `Name`, `AlbumId`(外键), `MediaTypeId`(外键), `GenreId`(外键), `Composer`(作曲者，可为空), `Milliseconds`(曲目时长), `Bytes`(文件大小), `UnitPrice`(单曲售价) |
+> | `Genre`         | 音乐流派                   | `GenreId`(主键), `Name`                                      |
+> | `MediaType`     | 媒体类型                   | `MediaTypeId`(主键), `Name`                                  |
+> | `Playlist`      | 播放列表                   | `PlaylistId`(主键), `Name`(如 Music、Movies、TV Shows)       |
+> | `PlaylistTrack` | 播放列表与曲目的多对多关联 | `PlaylistId`(联合主键之一，外键指向 `Playlist.PlaylistId`), `TrackId`(联合主键之一，外键指向 `Track.TrackId`) |
+> | `Customer`      | 客户                       | `CustomerId`(主键), `FirstName`, `LastName`, `Company`,`Email`,`Address` ... , `SupportRepId`(外键，指向 `Employee.EmployeeId`，表示该客户由哪位客服负责) |
+> | `Employee`      | 员工                       | `EmployeeId`(主键), `FirstName`, `LastName`, `Title`(职位), `ReportsTo`(外键，指向 `Employee.EmployeeId`，表示该员工的直接上级),`HireDate`(入职日期) |
+> | `Invoice`       | 发票/订单                  | `InvoiceId`(主键), `CustomerId`(外键，指向 `Customer.CustomerId`，表示这张发票属于哪位客户), `InvoiceDate`(开票日期), `BillingAddress`(账单地址), ... , `BillingPostalCode`(账单邮编),`Total`(发票总金额) |
+> | `InvoiceLine`   | 发票明细                   | `InvoiceLineId`(主键), `InvoiceId`(外键，指向 `Invoice.InvoiceId`，表示属于哪张发票), `TrackId`(外键，指向 `Track.TrackId`，表示买了哪首曲目), `UnitPrice`(成交单价), `Quantity`(购买数量) |
+>
+> Artist 1 ── N Album 1 ── N Track
+> Genre 1 ── N Track
+> MediaType 1 ── N Track
+>
+> Playlist N ── PlaylistTrack ── N Track
+>
+> Customer 1 ── N Invoice 1 ── N InvoiceLine N ── 1 Track
+>
+> Employee 1 ── N Customer        （SupportRepId）
+> Employee 1 ── N Employee        （ReportsTo，自引用）
 
 ```powershell
 cd D:\download\AI\ChatGPT\Work\agent-project-1\datapilot

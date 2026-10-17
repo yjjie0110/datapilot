@@ -11,6 +11,7 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -25,9 +26,9 @@ class Settings(BaseSettings):
     model: str = "qwen3.8-flash"
     temperature: float = 0.0
 
-    db_dir: Path = Path("data/dbs")
-    dataset: Path = Path("data/benchmarks/chinook_v0.jsonl")
-    run_dir: Path = Path("experiments/runs")
+    db_dir: Path = Path(PROJECT_ROOT / "data/dbs")
+    dataset: Path = Path(PROJECT_ROOT / "data/benchmarks/chinook_v0.jsonl")
+    run_dir: Path = Path(PROJECT_ROOT / "experiments/runs")
 
     max_rows: int = 200
     sql_timeout_s: float = 10.0

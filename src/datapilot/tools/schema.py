@@ -73,7 +73,7 @@ def full_schema_text(db_path: str | Path) -> str:
     #   ...
 
 if __name__ == "__main__":
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-    db_dir = PROJECT_ROOT / "data" / "dbs" /"chinook.db"
-    print(db_dir)
-    print(full_schema_text(db_dir))
+    from datapilot.config import Settings
+    settings = Settings()
+    print(settings.db_dir)
+    print(full_schema_text(settings.db_dir / "chinook.db"))
