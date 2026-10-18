@@ -745,56 +745,163 @@ def type_breakdown(records: list[dict]) -> list[tuple[str, int, int, float | Non
 ### 5.2 `tests/test_metrics.py`
 
 ```python
-from datapilot.eval.metrics import explain_mismatch, results_equal
+# 这是 Text-to-SQL 评测流水线的 「打分 + 汇总」模块。核心职责分两块：
+#   1. 判定标准答案与模型输出的结果集是否等价（归一化 + 多重集比较 + 差异说明）；
+#   2. 把逐题记录聚合成评测指标（EX、错误率、行为正确率、延迟分位、成本、LLM 调用次数、按题型拆解）。
+# 一句话：前面跑完模型拿到结果后，这里负责判对错、算分数、出报表。
+
+from __future__ import annotations
+
+from collections import Counter
+from datetime import date, datetime, time
+from decimal import Decimal
+from typing import Any, Sequence
+
+NULL_SENTINEL = "<NULL>"
 
 
-def test_identical():
-    assert results_equal([[1, "A"]], [[1, "A"]])
+# 单元格归一化
+def _norm_cell(v: Any, ndigits: int, casefold: bool) -> str:
+    """
+    :arg
+        ndigits: 统一成定点小数的位数（默认2）
+        casefold: 不区分大小写？（默认False，区分大小写）
+    输入任意单元格，输出可比较的字符串。
+    casefold 控制是否大小写折叠，默认由调用方传 False
+    """
+    if v is None:  # 让 NULL 有稳定可比较的表示，不会和 "None"/"null" 混淆
+        return NULL_SENTINEL
+    if isinstance(v, bool):  # 类型换成str（注意：必须放在int 之前判断，因为 Python 里bool 是int 子类，否则True 会变成"1.00"）
+        return str(v)
+    if isinstance(v, (Decimal, int, float)):
+        # 统一成定点小数，容忍 COUNT(*) 返回 59(int) 和 AVG 返回 59.0(float) 的表示差异
+        # return f"{round(float(v), ndigits):.{ndigits}f}"
+        return f"{Decimal(str(v)).quantize(Decimal(10) ** -ndigits):.{ndigits}f}"
+
+    if isinstance(v, (datetime, date, time)):  # 不同驱动返回的日期表示不一，统一成 ISO 格式
+        return v.isoformat()
+    if isinstance(v, bytes):  # BLOB 列统一成十六进制字符串
+        return v.hex()
+    s = str(v).strip()  # 去空白；casefold 比 lower 更彻底（德语 ß → ss 等）
+    return s.casefold() if casefold else s
+
+    # 关键设计点：
+    #   数值统一成"定点小数"而不是 str(float)，是为了让 59、59.0、Decimal("59") 都变成 "59.00"——这是 Text-to-SQL 判分里最常踩的坑；
+    #   casefold 默认 False，因为大多数数据集区分大小写；需要时（如对大小写不敏感的库）再开；
+    #   NULL_SENTINEL 用特殊标记，避免和真实字符串 "NULL" 撞车。
+    # _norm_row 对一行逐列归一化，normalize_rows 对多行批量处理。
 
 
-def test_row_order_ignored_by_default():
-    assert results_equal([["A"], ["B"]], [["B"], ["A"]])
+# 把一行逐列归一化成 tuple，保证可哈希，供 Counter 使用
+def _norm_row(row: Sequence[Any], ndigits: int, casefold: bool) -> tuple[str, ...]:
+    return tuple(_norm_cell(c, ndigits, casefold) for c in row)
 
 
-def test_row_order_matters_when_ordered():
-    assert not results_equal([["A"], ["B"]], [["B"], ["A"]], ordered=True)
+# 批量归一化，输入一般是Sequence[Sequence[Any]]；返回 list[tuple]
+def normalize_rows(rows, *, ndigits: int = 2, casefold: bool = False):
+    return [_norm_row(r, ndigits, casefold) for r in rows]
 
 
-def test_duplicate_rows_are_counted():
-    assert not results_equal([["A"], ["A"]], [["A"]])
-    assert results_equal([["A"], ["A"]], [["A"], ["A"]])
+# 结果集等价判定（核心）
+def results_equal(
+    pred_rows: Sequence[Sequence[Any]],
+    gold_rows: Sequence[Sequence[Any]],
+    *,
+    ordered: bool = False,
+    ndigits: int = 2,
+    casefold: bool = False,
+) -> bool:
+    """结果集等价判定。
+
+    ordered=False: 多重集比较（行序无关，重复行计数）——主口径，符合 Text-to-SQL 大多数数据集（如 Spider、BIRD）的 EX 定义。
+    ordered=True : 逐行严格比较——参考口径
+    """
+    if len(pred_rows) != len(gold_rows):  # 行数不同直接不等，快速失败
+        return False
+    p = normalize_rows(pred_rows, ndigits=ndigits, casefold=casefold)  # 每个元素进行归一化
+    g = normalize_rows(gold_rows, ndigits=ndigits, casefold=casefold)
+    if ordered:  # 默认False，跳过
+        # list[tuple] 的逐元素比较，等价于逐行逐列严格相等
+        return p == g
+    # 多重集比较：行序无关，重复行计数。Counter 要求元素可哈希，tuple[str,...] 满足。
+    # c1 = Counter('abracadabra') ; c1 = Counter({'a': 5, 'b': 2, 'r': 2, 'c': 1, 'd': 1})
+    return Counter(p) == Counter(g)
 
 
-def test_int_vs_float_tolerated():
-    assert results_equal([[5], [3]], [[5.0], [3.00]])
+def explain_mismatch(pred_rows, gold_rows, *, ndigits=2, casefold=False) -> str:
+    """人话版不一致原因，Day 5 写失败分析会大量用到。"""
+    if len(pred_rows) != len(gold_rows):
+        return f"row_count_diff pred={len(pred_rows)} gold={len(gold_rows)}"
+
+    # 行数相同但第一行列数不同时报告列数差异
+    if pred_rows and gold_rows and len(pred_rows[0]) != len(gold_rows[0]):
+        return f"col_count_diff pred={len(pred_rows[0])} gold={len(gold_rows[0])}"
+
+    p = Counter(normalize_rows(pred_rows, ndigits=ndigits, casefold=casefold))
+    g = Counter(normalize_rows(gold_rows, ndigits=ndigits, casefold=casefold))
+    only_pred = list((p - g).elements())[:3]
+    only_gold = list((g - p).elements())[:3]
+    return f"row_diff only_pred={only_pred} only_gold={only_gold}"
 
 
-def test_null_handling():
-    assert results_equal([[None]], [[None]])
-    assert not results_equal([[None]], [[""]])
+# 汇总评测指标
+def aggregate(records: list[dict]) -> dict:
+    """
+    输入逐题记录列表，输出聚合指标字典
+    每条记录预期字段：
+        expected_behavior、ex、ex_ordered、status、latency_ms、cost_cny、llm_calls、behavior_ok、question_type
+    """
+    # 分成"可回答题"和"特殊行为题"两类
+    answerable = [r for r in records if r.get("expected_behavior") == "answer"]
+    special = [r for r in records if r.get("expected_behavior") in ("clarify", "refuse")]
+
+    def rate(num: int, den: int) -> float:
+        return round(num / den, 4) if den else 0.0
+
+    ex = sum(1 for r in answerable if r.get("ex"))
+    ex_ord = sum(1 for r in answerable if r.get("ex_ordered"))
+    errs = sum(1 for r in answerable if r.get("status") != "ok")
+    lat = sorted(r.get("latency_ms", 0) for r in records) or [0]
+
+    return {
+        "n_total": len(records),  # 总题数。
+        "n_answerable": len(answerable),  # 可回答题数。
+        "ex": rate(ex, len(answerable)),  # 可回答题的精确匹配率（主指标）。
+        "ex_ordered": rate(ex_ord, len(answerable)),  # 有序口径 EX，分母仍用 answerable
+        "error_rate": rate(errs, len(answerable)),  # 可回答题的错误率。
+        "behavior_ok": rate(sum(1 for r in special if r.get("behavior_ok")), len(special)),  # 特殊行为题的正确率。
+        "latency_p50_ms": round(lat[len(lat) // 2]),  # lat[len//2] 是"上中位数"（偶数长度取偏大的那个），但不是严格统计定义的中位数。对偶数长度，更常见的是取两个中间值的平均。
+        "latency_p95_ms": round(lat[min(len(lat) - 1, int(len(lat) * 0.95))]),  # 这是"最近秩"的近似，不是严格分位数。
+        "total_cost_cny": round(sum(r.get("cost_cny", 0.0) for r in records), 6),  # 总成本，6 位小数。
+        "cost_per_q_cny": round(
+            sum(r.get("cost_cny", 0.0) for r in records) / max(len(records), 1), 6
+        ),  # 每题平均成本
+        "avg_llm_calls": round(
+            sum(r.get("llm_calls", 0) for r in records) / max(len(records), 1), 2
+        ),  # 平均 LLM 调用次数，同样空输入问题。
+    }
 
 
-def test_numeric_tolerance_rounds_to_2():
-    assert results_equal([[5.001]], [[5.0]])
-    assert not results_equal([[5.01]], [[5.0]])
+# 按题型拆 EX
+def type_breakdown(records: list[dict]) -> list[tuple[str, int, int, float | None]]:
+    """
+    按题型拆 EX，用来诊断 headroom 到底卡在哪一类题上。
+    返回 (question_type, n_total, n_answerable, ex_rate) 列表
+    """
+    groups: dict[str, list[dict]] = {}
+    # 按 question_type 分组，缺失归为 "unknown"。
+    for r in records:
+        groups.setdefault(r.get("question_type", "unknown"), []).append(r)
 
+    rows = []
+    # 按题型名排序，保证输出稳定
+    for t, rs in sorted(groups.items()):
+        # len(rs) 是该题型总题数，len(ans) 是可回答题数，ex_rate 分母用 ans
+        ans = [r for r in rs if r.get("expected_behavior") == "answer"]
+        ex = sum(1 for r in ans if r.get("ex"))
+        rows.append((t, len(rs), len(ans), round(ex / len(ans), 3) if ans else None))
+    return rows
 
-def test_string_case_strict_by_default():
-    assert not results_equal([["Brazil"]], [["brazil"]])
-    assert results_equal([["Brazil"]], [["brazil"]], casefold=True)
-
-
-def test_whitespace_stripped():
-    assert results_equal([["  A "]], [["A"]])
-
-
-def test_col_count_diff():
-    assert not results_equal([["A", 1]], [["A"]])
-    assert "col_count_diff" in explain_mismatch([["A", 1]], [["A"]])
-
-
-def test_row_count_diff_reported():
-    assert "row_count_diff" in explain_mismatch([["A"]], [["A"], ["B"]])
 ```
 
 跑：`pytest -q`。全绿再往下走。
@@ -814,6 +921,15 @@ def test_row_count_diff_reported():
 ### 6.1 `src/datapilot/llm/client.py`
 
 ```python
+# 这是一个 LLM 调用统一封装层，把对 OpenAI 兼容接口）的所有调用收敛到一个入口。核心职责：
+#   统一调用入口——所有 LLM 请求都走这里；
+#   成本记账——按 token 用量和单价实时计算每次调用的人民币成本；
+#   可观测性——记录延迟、模型名、token 数；
+#   容错重试——对限流/连接/超时类错误做指数退避重试；
+#   可选 JSON 模式——强制模型返回合法 JSON。
+# 一句话：它是整个项目里"唯一允许调用 LLM 的管道"，保证每一次调用都能被计量、被重试、被追踪。
+
+
 from __future__ import annotations
 
 import time
@@ -829,17 +945,18 @@ from tenacity import (
 
 from datapilot.config import settings
 
+# 可重试异常白名单，分别是：429，触发限流；网络抖动、DNS、TLS 握手失败；请求超时；
 RETRYABLE = (RateLimitError, APIConnectionError, APITimeoutError)
 
 
 @dataclass
 class LLMResult:
-    text: str
-    model: str
+    text: str  # 模型输出文本
+    model: str  # 实际请求的模型名，便于按模型拆分报表
     in_tokens: int
     out_tokens: int
-    cost_cny: float
-    latency_ms: int
+    cost_cny: float  # 人民币成本，单位元
+    latency_ms: int  # 端到端延迟（含网络 + 重试等待
 
 
 class LLMClient:
@@ -854,10 +971,11 @@ class LLMClient:
         system: str,
         user: str,
         *,
-        json_mode: bool = True,
+        json_mode: bool = True,  # 默认开启，因为这项目是 Text-to-SQL，模型输出需要是 JSON（如 {"sql": "...", "reason": "..."}）
         temperature: float | None = None,
         model: str | None = None,
     ) -> LLMResult:
+        # 用于基准测试的性能计数器。(高精度计时）
         t0 = time.perf_counter()
         kwargs = {
             "model": model or self.s.model,
@@ -870,12 +988,15 @@ class LLMClient:
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
-        resp = self._call(kwargs)
-        u = resp.usage
+        resp = self._call(kwargs)  # 通过带 tenacity 重试的 _call 发起请求
+        u = resp.usage  # 取 token 用量
+        # 成本公式：(输入 token / 1e6) × 输入单价 + (输出 token / 1e6) × 输出单价
         cost = (u.prompt_tokens / 1e6) * self.s.price_in_per_m + (
             u.completion_tokens / 1e6
         ) * self.s.price_out_per_m
+
         return LLMResult(
+            # `resp.choices[0].message.content` → 模型生成的文本内容
             text=resp.choices[0].message.content or "",
             model=kwargs["model"],
             in_tokens=u.prompt_tokens,
@@ -884,14 +1005,29 @@ class LLMClient:
             latency_ms=round((time.perf_counter() - t0) * 1000),
         )
 
+    # 带重试的底层调用
     @retry(
-        retry=retry_if_exception_type(RETRYABLE),
-        stop=stop_after_attempt(4),
-        wait=wait_exponential(multiplier=1, min=1, max=20),
-        reraise=True,
+        retry=retry_if_exception_type(RETRYABLE),  # 只对白名单异常重试，其他异常直接抛出
+        stop=stop_after_attempt(4),  # 最多 4 次尝试（1 次原始 + 3 次重试）
+        wait=wait_exponential(multiplier=1, min=1, max=20),  # 等待时间 1, 2, 4, 8, 16, 20, 20...（上限 20s）（4 次尝试的总等待上限约 1 + 2 + 4 = 7s第 4 次失败后不再等待）
+        reraise=True,  # 重试耗尽后抛出原始异常而不是 RetryError
     )
     def _call(self, kwargs):
+        # 返回一个 `ChatCompletion` 对象，该对象包括choices(模型生成的候选回复列表)、usage(Token 用量，兼容接口可能为 `None`)等
+        # choices 数组中的每个元素（Choice）包含`index`：该候选在列表中的序号；`message`：模型生成的消息对象（`content`、`role`、`tool_calls` 等）
+        # usage 包含 `prompt_tokens`（输入 token 数）、`completion_tokens`（输出 token 数）、`total_tokens`
         return self._client.chat.completions.create(**kwargs)
+
+
+if __name__ == "__main__":
+    llm = LLMClient()
+    result = llm.chat_json(
+        system="你是一个 JSON 生成助手，只输出合法 JSON。",
+        user="请把下面内容转成 JSON：python=100k, java=2000w, C++=800k",
+    )
+    print(type(result))
+    print(result)
+
 ```
 
 三点说明：
@@ -903,6 +1039,11 @@ class LLMClient:
 ### 6.2 `src/datapilot/eval/runner.py`
 
 ```python
+# 这是 Text-to-SQL 项目的评测运行器（Evaluation Runner）。
+# 核心职责是：把评测数据集逐题喂给 pipeline，并发执行、逐条打分、增量落盘、支持断点续跑，最后汇总成指标报表。
+# 一句话：它是整个评测流水线的"总调度"——score_one 负责判一道题，run_eval 负责把几百道题高效、可靠、可恢复地跑完。
+
+
 from __future__ import annotations
 
 import hashlib
@@ -916,25 +1057,35 @@ from typing import Callable
 from datapilot.config import settings
 from datapilot.eval.metrics import aggregate, explain_mismatch, results_equal
 
+# 多线程写文件的互斥锁
 _write_lock = Lock()
 
 
+# 读 JSONL
+# 一次读入内存。对评测数据集（通常几百到几千条）足够；若换成百万级需改成流式
 def load_dataset(path: str | Path) -> list[dict]:
     p = Path(path)
     return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
+# 运行可比性标记
 def prompt_fingerprint() -> str:
     """把 prompt 的哈希写进 meta，防止拿两次不可比的 run 做对比。"""
     try:
+        # 取 pipeline 的 system prompt，算 SHA256 前 12 位，写进 meta.json
+        # 目的：两次 run 的 prompt 不同 → 结果不可直接对比。有了指纹，报表工具可以拒绝"拿不同 prompt 的 run 做对比"；
         from datapilot.pipelines import a0
         return hashlib.sha256(a0.SYSTEM.encode("utf-8")).hexdigest()[:12]
     except Exception:
         return "na"
 
 
+# 单题评分（核心）负责判一道题
 def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
+    """输入一道题 + pipeline 函数，输出一条完整记录。"""
+    # 用于基准测试的性能计数器。(高精度计时）
     t0 = time.perf_counter()
+    # 关键设计：单题失败不中断整个评测，降级为 status="error" 记录。这让 1000 题里挂 3 题也能跑完全程。
     try:
         out = pipeline_fn(q)
         err = None
@@ -945,22 +1096,28 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
         }
         err = f"{type(e).__name__}: {e}"
 
+    # 取预测行、gold 行、行为
     rows = out.get("rows")
     gold = q.get("gold_result")
     behavior = out.get("behavior", "answer")
 
+    # 只有 expected_behavior == "answer" 的题才算 EX；special 题 ex = None，正确
     ex = ex_ord = None
     if q["expected_behavior"] == "answer":
         if out.get("status") == "ok" and rows is not None and gold is not None:
+            # 计算EX
             ex = results_equal(rows, gold)
+            # 逐行严格比较
             ex_ord = results_equal(rows, gold, ordered=True)
         else:
             ex = ex_ord = False
 
+    # 只在"判错了且两边都有数据"时生成人话版差异
     mismatch = None
     if ex is False and rows is not None and gold is not None:
         mismatch = explain_mismatch(rows, gold)
 
+    # 记录字段设计比较完整：题目元信息、行为、状态、SQL、行数、EX、差异、错误、延迟、LLM 调用、成本
     return {
         "id": q["id"],
         "question": q["question"],
@@ -983,6 +1140,7 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
     }
 
 
+# 负责把几百道题高效、可靠、可恢复地跑完
 def run_eval(
     pipeline_fn: Callable[[dict], dict],
     *,
@@ -992,23 +1150,25 @@ def run_eval(
     limit: int | None = None,
     concurrency: int | None = None,
 ) -> dict:
-    dataset_path = Path(dataset_path or settings.dataset)
-    run_id = run_id or f"{config_name}_{time.strftime('%Y%m%d_%H%M%S')}"
-    run_dir = Path(settings.run_dir) / run_id
+    dataset_path = Path(dataset_path or settings.dataset)  # 数据集路径jsonl
+    run_id = run_id or f"{config_name}_{time.strftime('%Y%m%d_%H%M%S')}"  # 输出结果id
+    run_dir = Path(settings.run_dir) / run_id  # 输出结果文件夹
     run_dir.mkdir(parents=True, exist_ok=True)
     res_path = run_dir / "results.jsonl"
 
     # ---- 续跑：已经算过的题直接跳过 ----
     done: set[str] = set()
-    if res_path.exists():
+    if res_path.exists():  # 读已有 results.jsonl，收集已完成的 id
         for line in res_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 done.add(json.loads(line)["id"])
 
+    # 读取数据集jsonl 中的每一行
     items = [q for q in load_dataset(dataset_path) if q["id"] not in done]
-    if limit:
+    if limit:  # 截取前limit 条
         items = items[:limit]
 
+    # 写运行元信息，字段覆盖 run 标识、配置、数据集、进度、关键参数
     meta = {
         "run_id": run_id,
         "config": config_name,
@@ -1028,17 +1188,32 @@ def run_eval(
     )
 
     if items:
+        # 创建线程池，max_workers 取 concurrency（函数参数）和 settings.concurrency（全局配置）中第一个真值
+        # 追加模式，续跑时保留旧结果
         with ThreadPoolExecutor(concurrency or settings.concurrency) as pool, open(
             res_path, "a", encoding="utf-8"
         ) as sink:
+            # 对 items 中每道题 q，提交一个任务到线程池执行 score_one(q, pipeline_fn)
+            # ⚠️ 潜在风险：如果 items 极大（几十万），所有任务会一次性入队，Future 对象也全部驻留内存。更稳健的写法是用 executor.map 或分批提交
             futures = [pool.submit(score_one, q, pipeline_fn) for q in items]
-            for i, fut in enumerate(as_completed(futures), 1):
+
+            # as_completed(futures)是一个生成器，按任务完成的先后顺序 yield 出 Future（不是提交顺序！）
+            for i, fut in enumerate(as_completed(futures), 1):  # i 从1开始计数
+                # 阻塞取结果：Future.result() 在任务完成时返回 score_one 的返回值（此处应为 dict，字段含 id、status、ex 等）
+                # 由于 as_completed 只在任务已完成后才 yield，所以此处的 result() 不会阻塞，直接返回值
                 rec = fut.result()
+
+                # 目的：保证写文件的临界区原子性。
+                # 实际上这里是冗余的：主线程是唯一消费 futures 的线程，写文件本身已串行。加锁更多是防御性编程——防止将来有其他线程（比如在 score_one 里或日志线程）也写同一个 sink。
+                # 若 _write_lock 是 threading.Lock，则不可重入；若是 RLock 可重入。这里只需普通 Lock。
                 with _write_lock:
+                    # 把记录序列化成 JSON 字符串在写入"results.jsonl"里
                     sink.write(json.dumps(rec, ensure_ascii=False) + "\n")
                     sink.flush()  # 关键：进程崩了也不丢已完成的题
+                # 打印进度：[已完成/总数]，配合 as_completed 的乱序完成，进度是"真进度"
                 print(f"[{i}/{len(items)}] {rec['id']} status={rec['status']} ex={rec['ex']}")
 
+    # 获取"results.jsonl"里的记录
     records = [
         json.loads(l)
         for l in res_path.read_text(encoding="utf-8").splitlines()
@@ -1050,6 +1225,7 @@ def run_eval(
         "summary": aggregate(records),
         "records": records,
     }
+
 ```
 
 **这里是 Day 1 唯一不能省的东西。** 逻辑就三行——读已完成集合、只跑没跑的、每写完一行就 flush。但 150 题 × 5 配置的评测一定会中途出事，届时它能救你一整晚。
@@ -1057,6 +1233,10 @@ def run_eval(
 ### 6.3 `src/datapilot/pipelines/a0.py`
 
 ```python
+# 这是 Text-to-SQL 项目的 A0 baseline pipeline——最朴素、最"笨"的一条端到端单题流程：
+# 取 schema → 拼 prompt → 一次 LLM 调用 → 解析 JSON → 执行 SQL → 返回统一结果。
+
+
 from __future__ import annotations
 
 import json
@@ -1077,47 +1257,60 @@ SYSTEM = """你是一名资深的 SQLite 数据分析师，任务是把用户的
 {"sql": "...", "tables_used": ["表名"], "assumptions": ["你对题意做出的任何假设"]}
 """
 
+# 带缓存的 schema 读取
 _schema_cache: dict[str, str] = {}
 
-
+# 进程级缓存：同一 db_id 只读一次磁盘、算一次 schema。
+# Chinook 这种小库影响不大，但换成大库（几百张表）时，PRAGMA table_info + count(*) 很贵，缓存是必要的；
 def get_schema(db_id: str) -> str:
     if db_id not in _schema_cache:
+        # 生成"表 + 行数 + 列 + 主键 + 外键"的文本
         _schema_cache[db_id] = full_schema_text(settings.db_dir / f"{db_id}.db")
     return _schema_cache[db_id]
 
 
+# 容错 JSON 解析
 def extract_json(text: str) -> dict:
-    text = text.strip()
+    """三层容错，对应 LLM 输出的三种"不听话"""
+    text = text.strip()  # 去掉首位空白（含换行、空格、\t）
+
+    # 裹了 markdown 代码块：```json\n{...}\n```，先剥壳
+    # 注意：只判断开头，不判断结尾。若开头是 ``` 但结尾缺失（LLM 输出被截断），后面两条 sub 也只会剥掉开头，留下不完整的 JSON，最终走到第 3 层
     if text.startswith("```"):
-        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)  # 剥开头
+        text = re.sub(r"\n?```$", "", text)  # 剥结尾
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        m = re.search(r"\{.*\}", text, re.S)
+        m = re.search(r"\{.*\}", text, re.S)  # 兜底——从垃圾文本里抠 JSON 对象
         if not m:
             raise
         return json.loads(m.group(0))
 
 
+# 单题主流程（核心）
 def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
     """A0：单次生成，无检索、无修复、无校验。故意做到最笨。"""
     client = client or LLMClient()
     schema = get_schema(q["db_id"])
     user = f"# 数据库 Schema\n{schema}\n\n# 用户问题\n{q['question']}"
 
+    # 调模型
     r = client.chat_json(SYSTEM, user)
 
     try:
-        payload = extract_json(r.text)
+        payload = extract_json(r.text)  # 将模型LLM 输出的格式严格成JSON 格式
     except Exception as e:
+        # 解析失败 → status="parse_error"，不抛异常，返回结构化失败记录；
+        # 注意这里仍然计入 cost_cny（钱已经花了），但 llm_calls=1——记账诚实
         return {
             "status": "parse_error", "sql": None, "rows": None,
             "error": f"parse_error: {e}", "behavior": "answer",
             "llm_calls": 1, "cost_cny": r.cost_cny,
         }
 
-    sql = payload.get("sql", "")
+    sql = payload.get("sql", "")  # 获取JSON 中的sql 语句
+    # 执行sql，用 sql_runner.run_sql：AST 守卫、强制 LIMIT、只读、超时、错误分类；
     res = run_sql(
         settings.db_dir / f"{q['db_id']}.db",
         sql,
@@ -1125,6 +1318,7 @@ def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
         timeout_s=settings.sql_timeout_s,
     )
 
+    # 字段与 runner.score_one 的期望完全对齐（status / sql / rows / behavior / llm_calls / cost_cny / error），所以能直接作为 pipeline_fn 传给 run_eval
     return {
         "status": "ok" if res["ok"] else "sql_error",
         "sql": sql,
@@ -1139,6 +1333,7 @@ def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
         "llm_calls": 1,
         "cost_cny": r.cost_cny,
     }
+
 ```
 
 **Prompt 设计的两个要点（面试会问）：**
@@ -1151,6 +1346,10 @@ def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
 ### 6.4 `src/datapilot/eval/report.py`
 
 ```python
+# 这是一个 Markdown 评测报告生成器。核心职责是：把 run_eval 产出的 records（逐题记录）和 summary（聚合指标）连同 meta.json（运行上下文），渲染成一份人类可读的 report.md。
+# 一句话：它是评测流水线的"最后一公里"——把冷冰冰的 JSONL 变成可以直接贴进周报、PR、复盘文档的报表。
+
+
 from __future__ import annotations
 
 import json
@@ -1301,18 +1500,20 @@ if __name__ == "__main__":
 按顺序执行，每步都要看输出：
 
 ```powershell
+cd D:\download\AI\ChatGPT\Work\agent-project-1\datapilot
+
 # 1) 校验 gold，然后【手动】打开 jsonl 逐条看 gold_result
-python -m datapilot.cli verify-gold
+python -m src.datapilot.cli verify-gold
 
 # 2) 冒烟：先跑 3 题，确认管线通、成本合理
-python -m datapilot.cli eval --config a0 --limit 3 --run-id smoke
-python -m datapilot.cli ask "巴西有多少个客户？"
+python -m src.datapilot.cli eval --config a0 --limit 3 --run-id smoke
+python -m src.datapilot.cli ask "巴西有多少个客户？"
 
 # 3) 单测
 pytest -q
 
 # 4) 全量 30 题
-python -m datapilot.cli eval --config a0
+python -m src.datapilot.cli eval --config a0
 ```
 
 看 `reports/a0_*.md`。**在相信这个数字之前，先做四道检查：**
@@ -1376,13 +1577,13 @@ python -m datapilot.cli eval --config a0   # 再跑一次，应当无题可跑�
 
 全部打勾才算完成，任何一项没做，Day 2 一定会返工：
 
-- [ ] `python -m datapilot.cli eval --config a0` 能跑完 30 题并输出准确率
-- [ ] 评测集每题都有 `gold_result`（`answer` 类），且我**逐条看过**
-- [ ] runner 重跑同一 run_id 时不重复计算
-- [ ] `pytest -q` 全绿，至少 8 个指标单测
-- [ ] `runs/<run_id>/meta.json` 里有模型名、prompt 指纹、温度、数据集路径
+- [x] `python -m datapilot.cli eval --config a0` 能跑完 30 题并输出准确率
+- [x] 评测集每题都有 `gold_result`（`answer` 类），且我**逐条看过**
+- [x] runner 重跑同一 run_id 时不重复计算
+- [x] `pytest -q` 全绿，至少 8 个指标单测
+- [x] `runs/<run_id>/meta.json` 里有模型名、prompt 指纹、温度、数据集路径
 - [ ] 危险 SQL 被 `is_safe_select` 拦住（自己手测一次 `DROP TABLE Customer`）
-- [ ] 成本是按真实定价页的价格算的，不是占位符
+- [x] 成本是按真实定价页的价格算的，不是占位符
 - [ ] `docs/journal/day01.md` 写完了，含 headroom 判断
 
 ---

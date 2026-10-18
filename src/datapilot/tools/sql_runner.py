@@ -87,7 +87,7 @@ def enforce_limit(sql: str, max_rows: int) -> str:
     return f"SELECT * FROM ({sql.rstrip().rstrip(';')}) AS _dp_sub LIMIT {max_rows}"
 
 
-# 主执行函数（核心
+# 主执行函数（核心）
 def run_sql(
     db_path: str | Path,
     sql: str,
