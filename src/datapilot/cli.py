@@ -14,7 +14,7 @@ from pathlib import Path
 import typer
 from rich import print as rprint
 
-from datapilot.config import settings
+from datapilot.config import settings, PROJECT_ROOT
 from datapilot.eval.report import write_report
 from datapilot.eval.runner import run_eval
 from datapilot.eval.verify_gold import verify_gold
@@ -57,7 +57,7 @@ def cmd_eval(
     )
     rprint(out["summary"])
     src = write_report(out["run_dir"], out["records"], out["summary"], config)
-    dst = Path("reports") / f"{out['run_id']}.md"
+    dst = Path(PROJECT_ROOT / "reports") / f"{out['run_id']}.md"
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(src, dst)
     rprint(f"[green]报告：{dst}[/green]")

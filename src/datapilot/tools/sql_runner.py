@@ -55,7 +55,10 @@ def is_safe_select(sql: str) -> tuple[bool, str]:
     if not sql or not sql.strip():  # 空串直接拒
         return False, "empty_sql"
     try:  # 解析为 AST，解析失败也算拒绝
-        stmts = [s for s in sqlglot.parse(sql, read="sqlite") if s is not None]
+        stmts = [
+            s for s in sqlglot.parse(sql, read="sqlite")
+            if s is not None and not isinstance(s, getattr(exp, "Semicolon", ()))
+        ]
     except Exception as e:  # 语法错误也一并拦下
         return False, f"parse_error: {e}"
     # 必须只有 1 条语句——防 SELECT 1; DROP TABLE x; 这种注入
@@ -72,19 +75,34 @@ def is_safe_select(sql: str) -> tuple[bool, str]:
     return True, ""
 
 
-# 强制限流，防止limit 999999 等大量输出的情况
-# 注意一个已知弱点：这层包裹不能阻止 LLM 里那个 LIMIT 本身过大（如 LIMIT 999999），只是保证「没写 LIMIT 时也不会拉爆」。真正防止一次拉回太多是靠这个外层 + truncated 标记
+# # 强制限流，防止limit 999999 等大量输出的情况
+# # 注意一个已知弱点：这层包裹不能阻止 LLM 里那个 LIMIT 本身过大（如 LIMIT 999999），只是保证「没写 LIMIT 时也不会拉爆」。真正防止一次拉回太多是靠这个外层 + truncated 标记
+# def enforce_limit(sql: str, max_rows: int) -> str:
+#     """没有 LIMIT 就包一层子查询强制限流，防止一次拉回整库。"""
+#     stmts = [s for s in sqlglot.parse(sql, read="sqlite") if s is not None]
+#     # 如果原 SQL 已经有 LIMIT，原样返回
+#     if stmts and stmts[0].args.get("limit"):
+#         return sql
+#     # 否则外层包一层子查询加 LIMIT {max_rows}
+#     # 直接字符串拼 LIMIT 到原 SQL 尾部，遇到 ... ORDER BY x 或 ... UNION ... 会出错；
+#     # 包成 SELECT * FROM (...) AS _dp_sub LIMIT N 通用得多；
+#     # 先去尾部 ; 以免子查询里出现分号
+#     return f"SELECT * FROM ({sql.rstrip().rstrip(';')}) AS _dp_sub LIMIT {max_rows}"
+
+
 def enforce_limit(sql: str, max_rows: int) -> str:
-    """没有 LIMIT 就包一层子查询强制限流，防止一次拉回整库。"""
-    stmts = [s for s in sqlglot.parse(sql, read="sqlite") if s is not None]
-    # 如果原 SQL 已经有 LIMIT，原样返回
-    if stmts and stmts[0].args.get("limit"):
-        return sql
-    # 否则外层包一层子查询加 LIMIT {max_rows}
-    # 直接字符串拼 LIMIT 到原 SQL 尾部，遇到 ... ORDER BY x 或 ... UNION ... 会出错；
-    # 包成 SELECT * FROM (...) AS _dp_sub LIMIT N 通用得多；
-    # 先去尾部 ; 以免子查询里出现分号
-    return f"SELECT * FROM ({sql.rstrip().rstrip(';')}) AS _dp_sub LIMIT {max_rows}"
+    """永远包一层子查询强制限流。
+
+    返回的 SQL 最多返回 max_rows + 1 行：
+    - 第 max_rows + 1 行仅用于让调用方判断是否发生截断，需自行裁掉；
+    - 这样无论原 SQL 里写的是 `LIMIT 999999` 还是完全没写 LIMIT，
+      都保证真正返回给用户的行数 <= max_rows。
+    """
+    body = sql.strip()
+    if body.endswith(";"):
+        body = body[:-1].rstrip()
+    return f"SELECT * FROM ({body}) AS _dp_sub LIMIT {max_rows + 1}"
+
 
 
 # 主执行函数（核心）
@@ -121,9 +139,17 @@ def run_sql(
             lambda: 1 if time.monotonic() > deadline else 0, 20_000
         )
         # 5.执行并取结果
+        # crr 是一个 sqlite3.Cursor（游标：一个"指针"，记录当前读到结果集的哪一行）对象
         cur = conn.execute(wrapped)
+        # cur.description 列元信息（列名等），或 None（Python 中规定，里每一列的元信息必须是这个 7 元组）
         cols = [d[0] for d in cur.description]  # cur.description 给出列名
+        # cre.fetchall()取全部行（大结果集慎用，会全部读进内存）
         rows = [list(r) for r in cur.fetchall()]  # Row 对象转成普通 list，方便 JSON 序列化
+
+        truncated = len(rows) > max_rows  # 拿到 max_rows+1 行才说明被截断
+        if truncated:
+            rows = rows[:max_rows]  # 裁掉多查的那 1 行
+
         return {
             "ok": True, "error": None, "error_code": None,
             "columns": cols, "rows": rows,

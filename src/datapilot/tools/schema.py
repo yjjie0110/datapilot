@@ -15,6 +15,8 @@ def connect_ro(db_path: str | Path) -> sqlite3.Connection:
     return conn
 
 
+# 得到其写system prompt 的规则：
+# 如：1. 只允许使用下面 schema 中出现的表和列，禁止臆造表名或列名。
 def full_schema_text(db_path: str | Path) -> str:
     """导出完整 schema"""
     conn = connect_ro(db_path)
@@ -74,6 +76,5 @@ def full_schema_text(db_path: str | Path) -> str:
 
 if __name__ == "__main__":
     from datapilot.config import settings
-    print(settings.api_key)
     print(settings.db_dir)
     print(full_schema_text(settings.db_dir / "chinook.db"))

@@ -74,7 +74,7 @@ def results_equal(
     p = normalize_rows(pred_rows, ndigits=ndigits, casefold=casefold)  # 每个元素进行归一化
     g = normalize_rows(gold_rows, ndigits=ndigits, casefold=casefold)
     if ordered:  # 默认False，跳过
-        # list[tuple] 的逐元素比较，等价于逐行逐列严格相等
+        # list[tuple] 的逐元素比较，等价于逐行逐列严格相等，顺序敏感：[(1,2),(3,4)] != [(3,4),(1,2)]（除非先排序后再比）
         return p == g
     # 多重集比较：行序无关，重复行计数。Counter 要求元素可哈希，tuple[str,...] 满足。
     # c1 = Counter('abracadabra') ; c1 = Counter({'a': 5, 'b': 2, 'r': 2, 'c': 1, 'd': 1})
@@ -90,6 +90,7 @@ def explain_mismatch(pred_rows, gold_rows, *, ndigits=2, casefold=False) -> str:
     if pred_rows and gold_rows and len(pred_rows[0]) != len(gold_rows[0]):
         return f"col_count_diff pred={len(pred_rows[0])} gold={len(gold_rows[0])}"
 
+    # 行数、列数相同，里面元素有差异
     p = Counter(normalize_rows(pred_rows, ndigits=ndigits, casefold=casefold))
     g = Counter(normalize_rows(gold_rows, ndigits=ndigits, casefold=casefold))
     only_pred = list((p - g).elements())[:3]
@@ -97,7 +98,7 @@ def explain_mismatch(pred_rows, gold_rows, *, ndigits=2, casefold=False) -> str:
     return f"row_diff only_pred={only_pred} only_gold={only_gold}"
 
 
-# 汇总评测指标
+# 汇总评测指标，输入已经runner.run_eval return后的结果
 def aggregate(records: list[dict]) -> dict:
     """
     输入逐题记录列表，输出聚合指标字典
@@ -112,7 +113,8 @@ def aggregate(records: list[dict]) -> dict:
         return round(num / den, 4) if den else 0.0
 
     ex = sum(1 for r in answerable if r.get("ex"))
-    ex_ord = sum(1 for r in answerable if r.get("ex_ordered"))
+    ord_records = [r for r in answerable if r.get("ex_ordered") is not None]
+    ex_ord = sum(1 for r in ord_records if r.get("ex_ordered"))
     errs = sum(1 for r in answerable if r.get("status") != "ok")
     lat = sorted(r.get("latency_ms", 0) for r in records) or [0]
 
@@ -120,7 +122,8 @@ def aggregate(records: list[dict]) -> dict:
         "n_total": len(records),  # 总题数。
         "n_answerable": len(answerable),  # 可回答题数。
         "ex": rate(ex, len(answerable)),  # 可回答题的精确匹配率（主指标）。
-        "ex_ordered": rate(ex_ord, len(answerable)),  # 有序口径 EX，分母仍用 answerable
+        "ex_ordered": rate(ex_ord, len(ord_records)),  # 有序口径 EX，分母仍用 answerable
+        "n_order_sensitive": len(ord_records),
         "error_rate": rate(errs, len(answerable)),  # 可回答题的错误率。
         "behavior_ok": rate(sum(1 for r in special if r.get("behavior_ok")), len(special)),  # 特殊行为题的正确率。
         "latency_p50_ms": round(lat[len(lat) // 2]),  # lat[len//2] 是"上中位数"（偶数长度取偏大的那个），但不是严格统计定义的中位数。对偶数长度，更常见的是取两个中间值的平均。
@@ -144,6 +147,11 @@ def type_breakdown(records: list[dict]) -> list[tuple[str, int, int, float | Non
     groups: dict[str, list[dict]] = {}
     # 按 question_type 分组，缺失归为 "unknown"。
     for r in records:
+        # dict.setdefault: 如果 key 不存在，就把它设成 default 并返回 default；如果已存在，就直接返回现有的值，不做任何修改。
+        # d.setdefault(key, default=None)  等价于
+        # if key not in d:
+        #     d[key] = default
+        # return d[key]
         groups.setdefault(r.get("question_type", "unknown"), []).append(r)
 
     rows = []

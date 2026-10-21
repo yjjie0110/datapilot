@@ -49,8 +49,7 @@ def verify_gold(dataset_path: str | Path, db_dir: str | Path, max_rows: int = 20
     return {"total": len(items), "problems": problems}
 
 if __name__ == "__main__":
-    from datapilot.config import Settings
-    settings = Settings()
+    from datapilot.config import settings
 
     result = verify_gold(settings.dataset, settings.db_dir, settings.max_rows)
     print(result["total"])

@@ -41,11 +41,13 @@ def prompt_fingerprint() -> str:
 
 # 单题评分（核心）负责判一道题
 def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
-    """输入一道题 + pipeline 函数，输出一条完整记录。"""
+    """输入一道题 + pipeline 函数（a0_answer......），输出一条完整记录。"""
     # 用于基准测试的性能计数器。(高精度计时）
     t0 = time.perf_counter()
     # 关键设计：单题失败不中断整个评测，降级为 status="error" 记录。这让 1000 题里挂 3 题也能跑完全程。
     try:
+        # return {"status": ,"sql": ,"tables_used": ,"assumptions": ,"rows": ,"columns": ,"error": ,
+        #           "error_code": ,"behavior": ,"llm_calls": ,"cost_cny": ,}
         out = pipeline_fn(q)
         err = None
     except Exception as e:
@@ -56,8 +58,8 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
         err = f"{type(e).__name__}: {e}"
 
     # 取预测行、gold 行、行为
-    rows = out.get("rows")
-    gold = q.get("gold_result")
+    rows = out.get("rows")  # 经过llm 产生sql 获取的pre
+    gold = q.get("gold_result")  # chinook_v0.jsonl 中的gold_result
     behavior = out.get("behavior", "answer")
 
     # 只有 expected_behavior == "answer" 的题才算 EX；special 题 ex = None，正确
@@ -67,7 +69,11 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
             # 计算EX
             ex = results_equal(rows, gold)
             # 逐行严格比较
-            ex_ord = results_equal(rows, gold, ordered=True)
+            ex_ord = (
+                results_equal(rows, gold, ordered=True)
+                if q.get("order_sensitive")
+                else None
+            )
         else:
             ex = ex_ord = False
 
@@ -89,6 +95,7 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
         "sql": out.get("sql"),
         "tables_used": out.get("tables_used"),
         "row_count": len(rows) if rows is not None else None,
+        "order_sensitive": bool(q.get("order_sensitive")),
         "ex": ex,
         "ex_ordered": ex_ord,
         "mismatch": mismatch,
@@ -97,6 +104,14 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
         "llm_calls": out.get("llm_calls", 0),
         "cost_cny": out.get("cost_cny", 0.0),
     }
+
+
+def dataset_fingerprint(path: str | Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:12]
+
+# 续跑添加数据集指纹
+def run_fingerprint(dataset_path: str | Path) -> str:
+    return f"{dataset_fingerprint(dataset_path)}-{prompt_fingerprint()}"
 
 
 # 负责把几百道题高效、可靠、可恢复地跑完
@@ -116,13 +131,23 @@ def run_eval(
     res_path = run_dir / "results.jsonl"
 
     # ---- 续跑：已经算过的题直接跳过 ----
+    fp = run_fingerprint(dataset_path)
+    meta_path = run_dir / "meta.json"
+    if res_path.exists() and meta_path.exists():
+        old = json.loads(meta_path.read_text(encoding="utf-8"))
+        if old.get("fingerprint") and old["fingerprint"] != fp:
+            raise RuntimeError(
+                f"数据集或 prompt 已变化（{old['fingerprint']} -> {fp}）。"
+                f"请换一个 run_id，或删除 {run_dir}。"
+            )
+
     done: set[str] = set()
     if res_path.exists():  # 读已有 results.jsonl，收集已完成的 id
         for line in res_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 done.add(json.loads(line)["id"])
 
-    # 读取数据集jsonl 中的每一行
+    # 读取数据集chinook_v0.jsonl 中的每一行
     items = [q for q in load_dataset(dataset_path) if q["id"] not in done]
     if limit:  # 截取前limit 条
         items = items[:limit]
@@ -132,6 +157,7 @@ def run_eval(
         "run_id": run_id,
         "config": config_name,
         "prompt_fingerprint": prompt_fingerprint(),
+        "fingerprint": fp,
         "model": settings.model,
         "base_url": settings.base_url,
         "temperature": settings.temperature,

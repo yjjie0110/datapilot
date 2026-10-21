@@ -566,8 +566,7 @@ def verify_gold(dataset_path: str | Path, db_dir: str | Path, max_rows: int = 20
     return {"total": len(items), "problems": problems}
 
 if __name__ == "__main__":
-    from datapilot.config import Settings
-    settings = Settings()
+    from datapilot.config import settings
 
     result = verify_gold(settings.dataset, settings.db_dir, settings.max_rows)
     print(result["total"])
@@ -745,163 +744,59 @@ def type_breakdown(records: list[dict]) -> list[tuple[str, int, int, float | Non
 ### 5.2 `tests/test_metrics.py`
 
 ```python
-# 这是 Text-to-SQL 评测流水线的 「打分 + 汇总」模块。核心职责分两块：
-#   1. 判定标准答案与模型输出的结果集是否等价（归一化 + 多重集比较 + 差异说明）；
-#   2. 把逐题记录聚合成评测指标（EX、错误率、行为正确率、延迟分位、成本、LLM 调用次数、按题型拆解）。
-# 一句话：前面跑完模型拿到结果后，这里负责判对错、算分数、出报表。
+# 用来验证 datapilot/eval/metrics.py 里 results_equal 和 explain_mismatch 两个函数的判分语义是否符合设计约定。
+# 使用pytest -q 测试
 
-from __future__ import annotations
+from datapilot.eval.metrics import explain_mismatch, results_equal
 
-from collections import Counter
-from datetime import date, datetime, time
-from decimal import Decimal
-from typing import Any, Sequence
+# ① 最基本：完全相同
+def test_identical():
+    assert results_equal([[1, "A"]], [[1, "A"]])
 
-NULL_SENTINEL = "<NULL>"
+# ② 默认行序无关
+def test_row_order_ignored_by_default():
+    assert results_equal([["A"], ["B"]], [["B"], ["A"]])
 
+# ③ ordered=True 时行序必须一致
+def test_row_order_matters_when_ordered():
+    assert not results_equal([["A"], ["B"]], [["B"], ["A"]], ordered=True)
 
-# 单元格归一化
-def _norm_cell(v: Any, ndigits: int, casefold: bool) -> str:
-    """
-    :arg
-        ndigits: 统一成定点小数的位数（默认2）
-        casefold: 不区分大小写？（默认False，区分大小写）
-    输入任意单元格，输出可比较的字符串。
-    casefold 控制是否大小写折叠，默认由调用方传 False
-    """
-    if v is None:  # 让 NULL 有稳定可比较的表示，不会和 "None"/"null" 混淆
-        return NULL_SENTINEL
-    if isinstance(v, bool):  # 类型换成str（注意：必须放在int 之前判断，因为 Python 里bool 是int 子类，否则True 会变成"1.00"）
-        return str(v)
-    if isinstance(v, (Decimal, int, float)):
-        # 统一成定点小数，容忍 COUNT(*) 返回 59(int) 和 AVG 返回 59.0(float) 的表示差异
-        # return f"{round(float(v), ndigits):.{ndigits}f}"
-        return f"{Decimal(str(v)).quantize(Decimal(10) ** -ndigits):.{ndigits}f}"
+# ④ 重复行必须计数
+def test_duplicate_rows_are_counted():
+    assert not results_equal([["A"], ["A"]], [["A"]])
+    assert results_equal([["A"], ["A"]], [["A"], ["A"]])
 
-    if isinstance(v, (datetime, date, time)):  # 不同驱动返回的日期表示不一，统一成 ISO 格式
-        return v.isoformat()
-    if isinstance(v, bytes):  # BLOB 列统一成十六进制字符串
-        return v.hex()
-    s = str(v).strip()  # 去空白；casefold 比 lower 更彻底（德语 ß → ss 等）
-    return s.casefold() if casefold else s
+# ⑤ int 与 float 兼容
+def test_int_vs_float_tolerated():
+    assert results_equal([[5], [3]], [[5.0], [3.00]])
 
-    # 关键设计点：
-    #   数值统一成"定点小数"而不是 str(float)，是为了让 59、59.0、Decimal("59") 都变成 "59.00"——这是 Text-to-SQL 判分里最常踩的坑；
-    #   casefold 默认 False，因为大多数数据集区分大小写；需要时（如对大小写不敏感的库）再开；
-    #   NULL_SENTINEL 用特殊标记，避免和真实字符串 "NULL" 撞车。
-    # _norm_row 对一行逐列归一化，normalize_rows 对多行批量处理。
+# ⑥ NULL 特殊处理
+def test_null_handling():
+    assert results_equal([[None]], [[None]])
+    assert not results_equal([[None]], [[""]])
 
+# ⑦ 数值容差：默认 2 位小数
+def test_numeric_tolerance_rounds_to_2():
+    assert results_equal([[5.001]], [[5.0]])
+    assert not results_equal([[5.01]], [[5.0]])
 
-# 把一行逐列归一化成 tuple，保证可哈希，供 Counter 使用
-def _norm_row(row: Sequence[Any], ndigits: int, casefold: bool) -> tuple[str, ...]:
-    return tuple(_norm_cell(c, ndigits, casefold) for c in row)
+# ⑧ 字符串大小写默认严格
+def test_string_case_strict_by_default():
+    assert not results_equal([["Brazil"]], [["brazil"]])
+    assert results_equal([["Brazil"]], [["brazil"]], casefold=True)
 
+# ⑨ 空白剥离
+def test_whitespace_stripped():
+    assert results_equal([["  A "]], [["A"]])
 
-# 批量归一化，输入一般是Sequence[Sequence[Any]]；返回 list[tuple]
-def normalize_rows(rows, *, ndigits: int = 2, casefold: bool = False):
-    return [_norm_row(r, ndigits, casefold) for r in rows]
+# ⑩ 列数不一致
+def test_col_count_diff():
+    assert not results_equal([["A", 1]], [["A"]])
+    assert "col_count_diff" in explain_mismatch([["A", 1]], [["A"]])
 
-
-# 结果集等价判定（核心）
-def results_equal(
-    pred_rows: Sequence[Sequence[Any]],
-    gold_rows: Sequence[Sequence[Any]],
-    *,
-    ordered: bool = False,
-    ndigits: int = 2,
-    casefold: bool = False,
-) -> bool:
-    """结果集等价判定。
-
-    ordered=False: 多重集比较（行序无关，重复行计数）——主口径，符合 Text-to-SQL 大多数数据集（如 Spider、BIRD）的 EX 定义。
-    ordered=True : 逐行严格比较——参考口径
-    """
-    if len(pred_rows) != len(gold_rows):  # 行数不同直接不等，快速失败
-        return False
-    p = normalize_rows(pred_rows, ndigits=ndigits, casefold=casefold)  # 每个元素进行归一化
-    g = normalize_rows(gold_rows, ndigits=ndigits, casefold=casefold)
-    if ordered:  # 默认False，跳过
-        # list[tuple] 的逐元素比较，等价于逐行逐列严格相等
-        return p == g
-    # 多重集比较：行序无关，重复行计数。Counter 要求元素可哈希，tuple[str,...] 满足。
-    # c1 = Counter('abracadabra') ; c1 = Counter({'a': 5, 'b': 2, 'r': 2, 'c': 1, 'd': 1})
-    return Counter(p) == Counter(g)
-
-
-def explain_mismatch(pred_rows, gold_rows, *, ndigits=2, casefold=False) -> str:
-    """人话版不一致原因，Day 5 写失败分析会大量用到。"""
-    if len(pred_rows) != len(gold_rows):
-        return f"row_count_diff pred={len(pred_rows)} gold={len(gold_rows)}"
-
-    # 行数相同但第一行列数不同时报告列数差异
-    if pred_rows and gold_rows and len(pred_rows[0]) != len(gold_rows[0]):
-        return f"col_count_diff pred={len(pred_rows[0])} gold={len(gold_rows[0])}"
-
-    p = Counter(normalize_rows(pred_rows, ndigits=ndigits, casefold=casefold))
-    g = Counter(normalize_rows(gold_rows, ndigits=ndigits, casefold=casefold))
-    only_pred = list((p - g).elements())[:3]
-    only_gold = list((g - p).elements())[:3]
-    return f"row_diff only_pred={only_pred} only_gold={only_gold}"
-
-
-# 汇总评测指标
-def aggregate(records: list[dict]) -> dict:
-    """
-    输入逐题记录列表，输出聚合指标字典
-    每条记录预期字段：
-        expected_behavior、ex、ex_ordered、status、latency_ms、cost_cny、llm_calls、behavior_ok、question_type
-    """
-    # 分成"可回答题"和"特殊行为题"两类
-    answerable = [r for r in records if r.get("expected_behavior") == "answer"]
-    special = [r for r in records if r.get("expected_behavior") in ("clarify", "refuse")]
-
-    def rate(num: int, den: int) -> float:
-        return round(num / den, 4) if den else 0.0
-
-    ex = sum(1 for r in answerable if r.get("ex"))
-    ex_ord = sum(1 for r in answerable if r.get("ex_ordered"))
-    errs = sum(1 for r in answerable if r.get("status") != "ok")
-    lat = sorted(r.get("latency_ms", 0) for r in records) or [0]
-
-    return {
-        "n_total": len(records),  # 总题数。
-        "n_answerable": len(answerable),  # 可回答题数。
-        "ex": rate(ex, len(answerable)),  # 可回答题的精确匹配率（主指标）。
-        "ex_ordered": rate(ex_ord, len(answerable)),  # 有序口径 EX，分母仍用 answerable
-        "error_rate": rate(errs, len(answerable)),  # 可回答题的错误率。
-        "behavior_ok": rate(sum(1 for r in special if r.get("behavior_ok")), len(special)),  # 特殊行为题的正确率。
-        "latency_p50_ms": round(lat[len(lat) // 2]),  # lat[len//2] 是"上中位数"（偶数长度取偏大的那个），但不是严格统计定义的中位数。对偶数长度，更常见的是取两个中间值的平均。
-        "latency_p95_ms": round(lat[min(len(lat) - 1, int(len(lat) * 0.95))]),  # 这是"最近秩"的近似，不是严格分位数。
-        "total_cost_cny": round(sum(r.get("cost_cny", 0.0) for r in records), 6),  # 总成本，6 位小数。
-        "cost_per_q_cny": round(
-            sum(r.get("cost_cny", 0.0) for r in records) / max(len(records), 1), 6
-        ),  # 每题平均成本
-        "avg_llm_calls": round(
-            sum(r.get("llm_calls", 0) for r in records) / max(len(records), 1), 2
-        ),  # 平均 LLM 调用次数，同样空输入问题。
-    }
-
-
-# 按题型拆 EX
-def type_breakdown(records: list[dict]) -> list[tuple[str, int, int, float | None]]:
-    """
-    按题型拆 EX，用来诊断 headroom 到底卡在哪一类题上。
-    返回 (question_type, n_total, n_answerable, ex_rate) 列表
-    """
-    groups: dict[str, list[dict]] = {}
-    # 按 question_type 分组，缺失归为 "unknown"。
-    for r in records:
-        groups.setdefault(r.get("question_type", "unknown"), []).append(r)
-
-    rows = []
-    # 按题型名排序，保证输出稳定
-    for t, rs in sorted(groups.items()):
-        # len(rs) 是该题型总题数，len(ans) 是可回答题数，ex_rate 分母用 ans
-        ans = [r for r in rs if r.get("expected_behavior") == "answer"]
-        ex = sum(1 for r in ans if r.get("ex"))
-        rows.append((t, len(rs), len(ans), round(ex / len(ans), 3) if ans else None))
-    return rows
-
+# ⑪ 行数不一致
+def test_row_count_diff_reported():
+    assert "row_count_diff" in explain_mismatch([["A"]], [["A"], ["B"]])
 ```
 
 跑：`pytest -q`。全绿再往下走。

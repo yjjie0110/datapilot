@@ -10,3 +10,11 @@ wheels/
 .venv
 
 .env
+
+test.py
+
+experiments
+.idea/
+.pytest_cache/
+.ruff_cache/
+*.log

@@ -53,7 +53,7 @@ def extract_json(text: str) -> dict:
         return json.loads(m.group(0))
 
 
-# 单题主流程（核心）
+# 单题主流程（核心），能直接作为 pipeline_fn 传给 run_eval
 def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
     """A0：单次生成，无检索、无修复、无校验。故意做到最笨。"""
     client = client or LLMClient()
@@ -61,10 +61,14 @@ def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
     user = f"# 数据库 Schema\n{schema}\n\n# 用户问题\n{q['question']}"
 
     # 调模型
+    # return {text:..., model:..., in_token:..., out_token:..., cost_cny:..., latency_ms:...}
+    # 其中 text{"sql": "...", "tables_used": ["表名"], "assumptions": ["你对题意做出的任何假设"]}
     r = client.chat_json(SYSTEM, user)
 
     try:
-        payload = extract_json(r.text)  # 将模型LLM 输出的格式严格成JSON 格式
+        # 将模型LLM 输出的格式严格成JSON 格式，包括：
+        #
+        payload = extract_json(r.text)
     except Exception as e:
         # 解析失败 → status="parse_error"，不抛异常，返回结构化失败记录；
         # 注意这里仍然计入 cost_cny（钱已经花了），但 llm_calls=1——记账诚实
@@ -76,6 +80,7 @@ def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
 
     sql = payload.get("sql", "")  # 获取JSON 中的sql 语句
     # 执行sql，用 sql_runner.run_sql：AST 守卫、强制 LIMIT、只读、超时、错误分类；
+    # return {"ok":..., "error":..., "error_code":...,"columns":..., "rows":...,"truncated":..., "elapsed_ms":...,}
     res = run_sql(
         settings.db_dir / f"{q['db_id']}.db",
         sql,
@@ -100,4 +105,4 @@ def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
     }
 
 if __name__ == "__main__":
-    a0_answer()
+    pass
