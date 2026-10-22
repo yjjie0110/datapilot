@@ -43,3 +43,15 @@ def test_limit_cannot_be_bypassed():
 def test_readonly_connection_blocks_write():
     r = run_sql(DB, "SELECT 1")
     assert r["ok"]
+
+
+def test_truncated_flag_exact_boundary():
+    # Genre 表恰好 25 行：max_rows=25 时不应误报截断
+    r = run_sql(DB, "SELECT * FROM Genre", max_rows=25)
+    assert r["ok"] and len(r["rows"]) == 25 and r["truncated"] is False
+
+
+def test_truncated_flag_when_overflow():
+    # Track 3503 行，必然截断
+    r = run_sql(DB, "SELECT * FROM Track", max_rows=200)
+    assert r["ok"] and len(r["rows"]) == 200 and r["truncated"] is True

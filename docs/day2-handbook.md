@@ -1,628 +1,702 @@
-# Day 2 实施手册 —— 先把尺子校准，再谈改进
+# Day 2 实施手册 —— schema 检索与第二个评测库
 
-> 前置：Day 1 已完成并通过自检。
-> 这份手册的第一部分是我对你 Day 1 的检查结论。请先读完再动手，因为 Day 2 的计划和原手册不一样了。
-
----
-
-## 0. Day 1 检查结论
-
-### 0.1 一句话
-
-**工程实现是合格的，评测体系是不合格的。** 代码结构、SQL 守卫、gold 校验、单测、续跑都做到了；但你的评测集已经饱和，A0 拿到 100%，这意味着后面所有 Agent 模块的增益都无法被测量。这是 Day 2 必须先解决的问题，优先级高于任何新功能。
-
-### 0.2 记分卡
-
-| 检查项 | 实测 | 判定 |
-| --- | --- | --- |
-| 环境与依赖 | uv + `.venv` + `uv.lock`，`pytest` 11 passed | ✅ |
-| 数据库 | Chinook 11 表，发票日期已对齐到 2021–2025 | ✅ |
-| 评测集 | 30 题（24 可判定 + 4 澄清 + 2 拒绝），id/题干无重复 | ✅ |
-| gold 质量 | 无缺失、无空结果、重跑与存档零漂移 | ✅ |
-| 单测 | 11 个指标测试全绿 | ✅ |
-| runner | 逐题 flush、按 id 跳过、meta 记录模型与 prompt 指纹 | ⚠️ 缺数据集指纹 |
-| A0 结果 | 95.83%（23/24） | ❌ 唯一失败是假阴性，真实 100% |
-| 特殊题行为 | 0% | ✅ 符合 A0 设计（它不澄清也不拒答） |
-| 报告 | 自动生成，含分题型与失败清单 | ✅ |
-
-### 0.3 最关键的一件事
-
-报告里唯一的失败是 `ch-001`：
-
-```
-生成 SQL: SELECT FirstName || ' ' || LastName AS Name, Email FROM Customer ...
-差异: col_count_diff pred=2 gold=3
-```
-
-这句话的意思不是"模型答错了"，是**模型答对了、你的判分把它判错了**。这是 Day 1 手册 4.5 节明确警告过的"格式陷阱"，它真的发生了。
-
-把这一题修好之后，A0 = 24/24 = **100%**。
-
-一个 100% 的 baseline 意味着什么：
-
-- A1 的 schema 检索不会有任何准确率增益；
-- A2 的自修复环没有错误可修；
-- A3 的双路校验是在给一个已经全对的系统做冗余；
-- Day 5 的消融表会是一条平线，整个项目失去说服力。
-
-**所以 Day 2 的第一优先级不是"加检索"，是"让尺子重新有刻度"。**
-
-### 0.4 我顺带查到的数据特征（会影响你怎么出题）
-
-1. **客户消费额分布极窄**：59 个客户，总额 36.64–49.62，均值 39.47。没有客户高于均值 1.3 倍。
-   → "消费最高的客户""前 10% 客户"这类题几乎没有区分度，而且容易出现并列（45.62 出现两次）。**难题应该来自结构复杂度，不是数值极值。**
-2. **流派曲目数有并列**：有两个流派都是 28 首。
-   → `ORDER BY COUNT(*) DESC` 在并列处的顺序不稳定，有序比较会随机判错。
-3. **2025 年只有 80 张发票，2021–2024 各 83 张**，各月同比会出现大量 0.0。
-   → 这不是 bug，但会让"同比增长"类题目的答案看起来很奇怪，出题时要知道。
-4. **P50 8.1s / P95 22.4s，最慢一题 37.5s**。
-   → 30 题还能忍，150 题 × 5 配置会很痛。Day 2 加题后请注意控制全量运行次数。
+> 前置：Day 1 已完成（30 题、metrics、runner、A0 数字）。
+> 本手册与总手册有一处**刻意的偏离**：把第二个数据库从 Day 5 提前到 Day 2。原因写在第 0 章，先读懂再动手。
 
 ---
 
-## 1. 问题清单（按优先级）
+## 0. 开工前：先处理 Day 1 留下的三笔债（60 分钟，不允许跳过）
 
-### P0 —— 会直接毁掉项目说服力，Day 2 上午必须修完
+### 0.1 头号问题：A0 = 100%，消融故事已经死了，今天复活它
 
-#### P0-1 评测集饱和
+Day 1 最新全量 run（`a0_20261021_205530`）：**EX（无序）= 100%，EX（有序）= 100%，24/24**。
 
-- **现象**：A0 真实 100%。
-- **根因**：24 道题全部是"单表过滤 / 常规聚合 / 两表 join / 简单 HAVING"，Chinook 又是公开数据集，模型极可能见过同类结构。
-- **修法**：见第 5 章。加结构性难题，把 A0 压到 75% 以下（理想 55%–70%）。
-- **不要做的事**：不要靠"换一个更弱的模型"来制造 headroom。那是把问题藏起来，Day 5 面试官一问"为什么不用强模型"你就答不上来。弱模型对比可以做，但只能作为附加实验。
+对照总手册第 0 章的决策表，这落在 "≥ 80% = 题目太 easy" 区间。后果很硬：
 
-#### P0-2 `ex_ordered` 语义是错的
+- A1/A2/A3/A4 在 EX 上**没有任何提升空间**，Day 5 的消融表会是一条平线，项目核心价值归零。
+- 根因不是题不够难，而是 **Chinook 太小**：11 张表、schema 全文约 2–3k token，全量塞进 prompt 又便宜又准确。A1（schema 检索）在这个库上从原理上就不可能赢——没有检索失败的余地，也没有成本压力。
 
-- **现象**：报告里 EX 87.5%，看起来"有 2 题排序错了"。
-- **实际**：
-  - `ch-004`「哪些专辑总时长超过 60 分钟」根本没要求排序，模型没排序，被判错；
-  - `ch-003`「按数量降序」模型排对了，但因为两个流派并列 28 首，并列内部的顺序不同，被判错。
-- **结论**：87.5% 这个数字没有信息量，甚至会误导你自己。
-- **修法**：给每题加 `order_sensitive` 字段，只在该字段为 true 时计算有序 EX；并列题要么指定次级排序键，要么不算有序。
+**对策（今天执行，二选一并行）：**
 
-#### P0-3 续跑只按 `id` 去重，改完 gold 不会重跑
+1. **引入第二个、更真实的库（主路）。** 用 Sakila（16 张表，含视图、enum、更绕的 join 路径）新建约 20 道题，难度压在 2–3。Sakila 也不算大，但它的 join 链更长（`payment → customer → address → city → country` 五表链），全 schema 塞 prompt 开始出现"信息稀释"——这是 A1 真正能测量的场景。
+2. **修正 A1 的叙事（必须同时做）。** 在小库上，A1 的诚实故事不是"提升 EX"，而是三条：
+   - **成本**：每次调用少带多少 token（`avg_in_tokens` 是你今天新增的一等指标）；
+   - **可扩展性**：库涨到 100+ 表时全 schema 根本塞不下，检索是唯一出路（在文档里论证，不用真造 100 张表）；
+   - **不伤害**：检索不能掉点——如果 A1 的 EX 低于 A0，说明召回漏了 gold 表，这就是"schema 召回率"指标要抓的东西。
 
-- **现象**：`run_eval` 从 `results.jsonl` 读出已完成的 id，直接跳过。
-- **后果**：你上午修完 `ch-001` 的题面、下午用同一个 `run_id` 重跑，`ch-001` 不会重新计算，你还会看到旧结果。**这个坑你今天一定会踩。**
-- **修法**：把「数据集文件哈希 + prompt 指纹」写进 meta；重跑时若指纹不一致，直接报错，强制换 run_id。
+> 如果将来想做强对比实验，还可以给 A0/A1 同配换一个弱模型（如本地 qwen2.5:7b），让 headroom 天然出现——"Agent 化在弱模型上收益最大"本身是很好的结论。今天**不做**，记在日报候选里，Day 5 视预算决定。
 
-### P1 —— 工程质量问题，Day 2 上午顺手修掉
+### 0.2 修日报
 
-#### P1-1 `enforce_limit` 可被内层 LIMIT 绕过（实测）
+打开 `docs/journal/day01.md`，补齐三处：
 
-我实测的结果：
+- `run_id: a0_20261021_205530`；
+- headroom 判断：照抄 0.1 的结论，并写清"日报里 95.83% 与最终 100% 的差异"——温度 0 下两次运行仍有一个题翻转，**EX 在 24 题上分母太小，单题波动就是 ±4pt**。这是重要发现：Day 5 全量 150 题前，所有 ±5pt 以内的"提升"都不能当真。写下来，面试能用。
+- "Day 2 第一件事"：就是本手册。
 
+### 0.3 修 `truncated` 假阳性 bug（10 分钟）
+
+`src/datapilot/tools/sql_runner.py` 的 `run_sql` 里，变量 `truncated = len(rows) > max_rows` 算对了，但 return 时写的是 `len(rows) >= max_rows`——结果恰好 200 行时会被误标截断。改为：
+
+```python
+        truncated = len(rows) > max_rows  # 拿到 max_rows+1 行才说明被截断
+        if truncated:
+            rows = rows[:max_rows]  # 裁掉多查的那 1 行
+
+        return {
+            "ok": True, "error": None, "error_code": None,
+            "columns": cols, "rows": rows,
+            "truncated": truncated,   # 用上面算好的值，不要重新 len(rows) >= max_rows
+            "elapsed_ms": round((time.perf_counter() - t0) * 1000),
+        }
 ```
-SELECT * FROM Track LIMIT 999999   -> 返回 3503 行（max_rows=200）
-SELECT * FROM Track                -> 返回 200 行
+
+在 `tests/test_sql_guard.py` 补两个用例，把 bug 钉死：
+
+```python
+def test_truncated_flag_exact_boundary():
+    # Genre 表恰好 25 行：max_rows=25 时不应误报截断
+    r = run_sql(DB, "SELECT * FROM Genre", max_rows=25)
+    assert r["ok"] and len(r["rows"]) == 25 and r["truncated"] is False
+
+
+def test_truncated_flag_when_overflow():
+    # Track 3503 行，必然截断
+    r = run_sql(DB, "SELECT * FROM Track", max_rows=200)
+    assert r["ok"] and len(r["rows"]) == 200 and r["truncated"] is True
 ```
-
-`enforce_limit` 看到原 SQL 已有 LIMIT 就原样返回，于是模型写一个 `LIMIT 999999` 就能把整表拉进内存。Chinook 只有 3503 行所以没炸，换成大库就是内存事故。
-
-#### P1-2 `.gitignore` 回退，`.idea/` 已入库
-
-- `experiments/` 现在没被忽略，`git status` 里是 `?? experiments/`，下次提交会把原始运行数据一起提交。
-- `.idea/` 的 9 个文件已经在 git 索引里。面试官点开仓库第一眼看到 IDE 配置，观感不好。
-- `.pytest_cache` 权限异常，会污染 `git status` 输出。
-
-#### P1-3 `chinook_look.jsonl` 不是 JSONL
-
-它其实是 30 个"漂亮打印"的 JSON 对象首尾相接，一共 2017 行。我验证过：按行解析会报错，按单个 JSON 解析也会报 `Extra data`。它是一个人工审阅用的副本，但名字和位置都在暗示"这是数据集"，迟早会有人（包括你）误用。
-
-#### P1-4 没有 `sql_runner` 的单测
-
-守卫我手工测了 5 个攻击样例，全部拦住（多语句、CTE 内 DELETE、PRAGMA、ATTACH 都正确拒绝）。但这是"我测过"，不是"仓库能保证"。而且我发现了一个误杀：`SELECT * FROM Customer; -- 注释` 会被判成两条语句而拒绝（sqlglot 返回 `['Select', 'Semicolon']`）。
-
-#### P1-5 缺 `tests/test_sql_guard.py`
-
-Day 1 验收清单里写了"危险 SQL 被拦住（自己手测一次）"，手工测过可以算完成，但面试时"有单测覆盖"和"我试过"是两回事。
-
-### P2 —— 不影响正确性，但影响可维护性与观感
-
-| # | 问题 | 修法 |
-| --- | --- | --- |
-| P2-1 | `schema.py` 的 `__main__` 会 `print(settings.api_key)` | 删掉这一行，改成打印 db 路径 |
-| P2-2 | `a0.py` 的 `__main__` 调用 `a0_answer()` 缺参数，必然 TypeError | 删掉或改成真实问题 |
-| P2-3 | 尾部注释加 `;` 会被守卫误杀 | 过滤 `exp.Semicolon` |
-| P2-4 | `cli.py` 用 `Path("reports")`，依赖当前工作目录 | 改用 `PROJECT_ROOT / "reports"` |
-| P2-5 | `docs/journal/day01.md` 的 headroom 段空着，末尾还粘了一段手册内容 | 补完并删掉粘贴内容 |
-| P2-6 | `config.py` 用 `_DropFieldsSource` 丢弃 `.env` 里的 `DP_DB_DIR/DP_DATASET/DP_RUN_DIR`，但 `.env` 里仍然写着它们 | 改成"相对路径按 PROJECT_ROOT 解析"，让 `.env` 真正生效 |
-
-P2-6 要解释一下：你现在这套 `_DropFieldsSource` 能让程序跑通，但它是一个补丁，不是设计。`.env.example` 告诉使用者"这三个字段可配"，代码却静默忽略——面试官看到会问"那为什么还留着"。正确做法是保留 `.env` 能力，用 validator 把相对路径解析成绝对路径。
 
 ---
 
-## 2. Day 2 的目标与硬门槛
-
-### 2.1 目标
-
-1. 把评测语义修对（P0-2、P0-3）。
-2. 把评测集从"能跑"变成"有区分度"：可判定题从 24 增加到 **36–40**，A0 落在 **55%–75%**。
-3. 在有 headroom 的前提下，实现 A1 schema 检索，并测出它的真实收益。
-
-### 2.2 硬门槛（不达标就不要往下做）
-
-| 门槛 | 标准 | 不达标怎么办 |
-| --- | --- | --- |
-| G1 | 修完语义后，`pytest` 全绿，A0 重新跑一遍 | 不通过就不进入加题 |
-| G2 | A0（v1 数据集）**≤ 75%** | 继续加结构性难题，不要做 A1 |
-| G3 | A1 的 schema recall ≥ 90% | 检查中文题干到英文表名的映射 |
-| G4 | A1 相对 A0 的 EX 下降 ≤ 2pt，输入 token 下降 ≥ 40% | 检索策略有问题，先修再继续 |
-
-**如果 G2 没达标，Day 2 下午不要写 A1。** 把时间全部花在加题上，并把 Day 3 的图实现顺延、砍掉 Day 6 的 UI。尺子不准的时候，做任何功能都是在给自己制造无法解释的数字。
-
----
-
-## 3. 时间表（9 小时）
+## 1. Day 2 时间表
 
 | 时段 | 任务 | 产出 |
 | --- | --- | --- |
-| 0:00–1:00 | P0-2 / P0-3 修复 + 重跑 A0（应变成 100%，作为证据留存） | 语义正确的 A0 报告 |
-| 1:00–1:40 | P1 修复：LIMIT、gitignore、删 look 文件、单测 | `pytest` 全绿 |
-| 1:40–4:00 | 加 12 道结构性难题 + 自检 + 跑 A0 | A0 落在目标区间 |
-| 4:00–5:00 | 午饭 / 缓冲（如果 G2 没过，这一小时继续加题） | |
-| 5:00–7:30 | 实现 A1 schema 检索 | `pipelines/a1.py` |
-| 7:30–8:30 | 跑 A0 vs A1，出对比报告 | `reports/day2_compare.md` |
-| 8:30–9:00 | 日报 + 明天接口约定 | `docs/journal/day02.md` |
+| 0:00–1:00 | 第 0 章三笔债 | 日报补齐、bug 修复、单测绿 |
+| 1:00–2:00 | schema.py 表级单元化重构（A0 文本逐字节不变） | `tools/schema.py` v2 |
+| 2:00–2:40 | gold_tables 自动抽取 + 回填数据集 | `eval/gold_tables.py` |
+| 2:40–4:00 | 下载 Sakila + 写 20 题 + verify + 逐条目检 | `data/benchmarks/sakila_v0.jsonl` |
+| 4:00–5:30 | BM25 检索器 + FK 一跳扩展 + 单测 | `nodes/schema_retriever.py` |
+| 5:30–6:30 | runner 支持 extra 字段 + metrics 加召回率/失败二分 | 小改动 |
+| 6:30–7:00 | A1 pipeline + CLI 注册 | `pipelines/a1.py` |
+| 7:00–8:00 | 跑 4 组实验：A0/A1 × chinook/sakila | 4 个 run |
+| 8:00–8:40 | 对比分析 + 日报 | `docs/journal/day02.md` |
+
+允许超时：Sakila 写题（可从 20 题降到 15 题）。
+**不允许超时：检索器单测、"A0 文本不变"的等价性验证。** 公平性是今天全部结论的地基。
 
 ---
 
-## 4. 阶段 A：修尺子
+## 2. 步骤 1：schema.py 表级单元化（60 分钟）
 
-### 4.1 给数据集加 `order_sensitive`
+### 2.1 为什么重构
 
-先做一次批量迁移（在 `datapilot/` 根目录执行）：
+Day 1 的 `full_schema_text()` 吐的是一整块文本。检索器需要的是**表级单元**——每张表一个可独立打分的文档。但有一个铁约束：
 
-```python
-# 一次性脚本，跑完可以删
-import json
-from pathlib import Path
+> **A0 的 prompt 必须逐字节不变。** 否则 `a0_20261021_205530` 的数字作废，所有对比失去基准。
 
-p = Path("data/benchmarks/chinook_v0.jsonl")
-items = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
-
-# 只有题干明确要求"排序 / 按…排列 / 前 N 名"的题才算有序
-ORDER_SENSITIVE = {"ch-002", "ch-003", "ch-017"}
-for it in items:
-    it["order_sensitive"] = it["id"] in ORDER_SENSITIVE
-
-p.write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in items), encoding="utf-8")
-```
-
-注意 `ch-004` 不在集合里：它问的是"哪些专辑"，没问顺序，其 gold SQL 里的 `ORDER BY al.Title` 只是让结果好看，不应该作为判分依据。
-
-### 4.2 修 `score_one`
-
-把这一段：
+### 2.2 `src/datapilot/tools/schema.py`（重构后完整版）
 
 ```python
-        if out.get("status") == "ok" and rows is not None and gold is not None:
-            ex = results_equal(rows, gold)
-            ex_ord = results_equal(rows, gold, ordered=True)
-```
+# schema 工具的表级单元化版本。
+# 约束：full_schema_text() 的输出必须与 Day 1 版本逐字节一致（A0 公平性底线）。
 
-改成：
-
-```python
-        if out.get("status") == "ok" and rows is not None and gold is not None:
-            ex = results_equal(rows, gold)
-            ex_ord = (
-                results_equal(rows, gold, ordered=True)
-                if q.get("order_sensitive")
-                else None
-            )
-```
-
-同时给记录加一个字段，便于以后分析：
-
-```python
-        "order_sensitive": bool(q.get("order_sensitive")),
-```
-
-### 4.3 修 `aggregate` 里的有序 EX
-
-```python
-    ord_records = [r for r in answerable if r.get("ex_ordered") is not None]
-    ex_ord = sum(1 for r in ord_records if r.get("ex_ordered"))
-    ...
-    "ex_ordered": rate(ex_ord, len(ord_records)),
-    "n_order_sensitive": len(ord_records),
-```
-
-报告里也要把分母改掉，否则 100% 会被算成 50%：
-
-```
-| EX（有序，仅排序题） | {summary['ex_ordered']:.2%}（n={summary['n_order_sensitive']}） |
-```
-
-### 4.4 修续跑指纹
-
-在 `runner.py` 加：
-
-```python
-def dataset_fingerprint(path: str | Path) -> str:
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:12]
-
-
-def run_fingerprint(dataset_path: str | Path) -> str:
-    return f"{dataset_fingerprint(dataset_path)}-{prompt_fingerprint()}"
-```
-
-在 `run_eval` 里，`run_dir.mkdir(...)` 之后、读 `done` 之前插入：
-
-```python
-    fp = run_fingerprint(dataset_path)
-    meta_path = run_dir / "meta.json"
-    if res_path.exists() and meta_path.exists():
-        old = json.loads(meta_path.read_text(encoding="utf-8"))
-        if old.get("fingerprint") and old["fingerprint"] != fp:
-            raise RuntimeError(
-                f"数据集或 prompt 已变化（{old['fingerprint']} -> {fp}）。"
-                f"请换一个 run_id，或删除 {run_dir}。"
-            )
-```
-
-并把 `"fingerprint": fp` 写进 meta。
-
-> **今天上午你会亲手验证这个设计的必要性**：修完 `ch-001` 后，如果沿用旧 run_id，程序会替你拦住这次误用。
-
-### 4.5 修 `enforce_limit`
-
-```python
-def enforce_limit(sql: str, max_rows: int) -> str:
-    """无论内层有没有 LIMIT，外层都再套一次，保证不会被 LIMIT 999999 绕过。"""
-    inner = sql.strip().rstrip(";").rstrip()
-    return f"SELECT * FROM ({inner}) AS _dp_sub LIMIT {int(max_rows)}"
-```
-
-并把 `run_sql` 里的 `cur.fetchall()` 改成：
-
-```python
-        rows = [list(r) for r in cur.fetchmany(max_rows)]
-```
-
-改完自己验证：
-
-```python
-run_sql(db, "SELECT * FROM Track LIMIT 999999", max_rows=200)  # 必须只返回 200 行
-```
-
-### 4.6 修守卫的尾部注释误杀
-
-```python
-    stmts = [
-        s for s in sqlglot.parse(sql, read="sqlite")
-        if s is not None and not isinstance(s, getattr(exp, "Semicolon", ()))
-    ]
-```
-
-`is_safe_select` 和 `enforce_limit` 两处都要改。
-
-### 4.7 `.gitignore` 与仓库卫生
-
-在 `.gitignore` 里补：
-
-```
-.idea/
-.pytest_cache/
-.ruff_cache/
-experiments/
-*.log
-```
-
-然后：
-
-```powershell
-git rm -r --cached .idea
-git add .gitignore
-```
-
-`chinook_look.jsonl` 我核对过：它就是 v0 的 30 道题，id 集合完全一致，只是排版不同。**直接删掉**，别留在 `data/benchmarks/` 里制造歧义。如果你想保留审阅版，把它移到 `docs/` 并改名 `.json`。
-
-### 4.8 补 `tests/test_sql_guard.py`
-
-```python
 import sqlite3
 from pathlib import Path
 
-import pytest
 
-from datapilot.tools.sql_runner import is_safe_select, run_sql
-
-DB = Path(__file__).resolve().parents[1] / "data/dbs/chinook.db"
-
-
-@pytest.mark.parametrize("sql", [
-    "SELECT 1; DROP TABLE Customer",
-    "DELETE FROM Customer",
-    "UPDATE Customer SET Email = 'x'",
-    "DROP TABLE Customer",
-    "WITH x AS (DELETE FROM Customer RETURNING *) SELECT * FROM x",
-    "PRAGMA table_info(Customer)",
-    "ATTACH DATABASE 'x.db' AS x",
-])
-def test_dangerous_sql_rejected(sql):
-    ok, _ = is_safe_select(sql)
-    assert not ok
+def connect_ro(db_path: str | Path) -> sqlite3.Connection:
+    uri = f"file:{Path(db_path).as_posix()}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
-@pytest.mark.parametrize("sql", [
-    "SELECT 1",
-    "SELECT * FROM Customer",
-    "SELECT * FROM Customer;",
-    "SELECT * FROM Customer; -- 说明",
-    "WITH x AS (SELECT 1 AS a) SELECT * FROM x",
-])
-def test_valid_select_accepted(sql):
-    ok, reason = is_safe_select(sql)
-    assert ok, reason
-
-
-def test_limit_cannot_be_bypassed():
-    r = run_sql(DB, "SELECT * FROM Track LIMIT 999999", max_rows=200)
-    assert r["ok"]
-    assert len(r["rows"]) == 200
-
-
-def test_readonly_connection_blocks_write():
-    r = run_sql(DB, "SELECT 1")
-    assert r["ok"]
-```
-
-### 4.9 P2 的三处小修
-
-| 文件 | 改法 |
-| --- | --- |
-| `tools/schema.py` | 删掉 `print(settings.api_key)`，改成 `print(settings.db_dir)` |
-| `pipelines/a0.py` | 删掉 `if __name__ == "__main__": a0_answer()` |
-| `cli.py` | `from datapilot.config import PROJECT_ROOT`，把 `Path("reports")` 改成 `PROJECT_ROOT / "reports"` |
-| `config.py` | 删掉 `_DropFieldsSource`/`_PINNED_FIELDS`/`settings_customise_sources`，改为 validator（见下） |
-
-```python
-    @field_validator("db_dir", "dataset", "run_dir", mode="after")
-    @classmethod
-    def _resolve_against_project_root(cls, v: Path) -> Path:
-        return v if v.is_absolute() else (PROJECT_ROOT / v).resolve()
-```
-
-### 4.10 修完先跑一遍，留存"100%"这个证据
-
-```powershell
-pytest -q
-python -m datapilot.cli eval --config a0 --run-id a0_semantics_fixed
-```
-
-这一轮的意义不是分数，是**你手里有一份"语义正确但完全饱和"的 baseline**。Day 7 写设计文档时，它会成为"为什么必须做难评测"的最好论据。
-
----
-
-## 5. 阶段 B：把 benchmark 做出区分度
-
-### 5.1 加难的正确方式
-
-难度必须来自**结构**，不能来自"数值上碰巧很难"：
-
-| 难度来源 | 为什么会难 | 例子 |
-| --- | --- | --- |
-| 反连接 / NOT EXISTS | 模型容易写成 LEFT JOIN + IS NULL，且容易漏掉多跳 | 从未买过某流派的客户 |
-| 窗口函数 | 分组内排序、取每组第一 | 每个播放列表里曲目最多的流派 |
-| 自连接 | 同一张表两种角色 | 员工与上级 |
-| 条件聚合 | CASE WHEN 与分母口径 | 某年销售额占全部年份的比例 |
-| 时间自连接 | 同月对比，需要两次时间过滤 | 2025 vs 2024 同比 |
-| 双重存在量词 | 两个独立 EXISTS 的交集 | 同时买过 Jazz 和 Rock 的客户 |
-| 空值 / 零值语义 | `COUNT(*) = 0` 与"空结果"不是一回事 | 没有任何播放列表收录的曲目数 |
-| 口径缺失 | 正确行为是澄清，不是硬答 | "活跃客户""最近一年" |
-
-**不要再用**："消费最高的客户""前 5 名"——我查过，这个库的客户消费额是 36.64–49.62 的窄区间，极值题既没有区分度又有并列。
-
-### 5.2 十二道已验证的题目（我已在你的库上跑通）
-
-下面这些 SQL 我都实际执行过，返回行数写在备注里。你复制进 `chinook_v0.jsonl` 后仍然要跑 `verify-gold` 并逐条目检——这是规矩，不因为我验证过就跳过。
-
-```jsonl
-{"id":"ch-031","db_id":"chinook","question":"哪些客户从未购买过 Jazz 流派的曲目？返回他们的名和姓。","question_type":"nested","difficulty":3,"gold_sql":"SELECT c.FirstName, c.LastName FROM Customer c WHERE NOT EXISTS (SELECT 1 FROM Invoice i JOIN InvoiceLine il ON il.InvoiceId = i.InvoiceId JOIN Track t ON t.TrackId = il.TrackId JOIN Genre g ON g.GenreId = t.GenreId WHERE i.CustomerId = c.CustomerId AND g.Name = 'Jazz') ORDER BY c.LastName, c.FirstName;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":false,"notes":"四表反连接；实测 27 行"}
-{"id":"ch-032","db_id":"chinook","question":"2025 年每个月的销售额相对 2024 年同月的同比增长率是多少？返回月份（YYYY-MM）和增长率，增长率用小数表示（0.1234 表示增长 12.34%）。","question_type":"nested","difficulty":3,"gold_sql":"WITH m AS (SELECT strftime('%Y-%m', InvoiceDate) AS ym, SUM(Total) AS total FROM Invoice GROUP BY 1) SELECT a.ym, ROUND((a.total - b.total) * 1.0 / b.total, 4) FROM m a JOIN m b ON substr(a.ym, 6, 2) = substr(b.ym, 6, 2) AND substr(a.ym, 1, 4) = '2025' AND substr(b.ym, 1, 4) = '2024' ORDER BY a.ym;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":true,"notes":"同月自连接；实测 12 行；题面已写死小数格式"}
-{"id":"ch-033","db_id":"chinook","question":"对每个流派，计算 2025 年销售额占该流派 2021 至 2025 年全部销售额的比例，返回比例超过 20% 的流派名和比例（保留 4 位小数）。","question_type":"aggregation","difficulty":3,"gold_sql":"WITH s AS (SELECT g.Name AS genre, SUM(CASE WHEN strftime('%Y', i.InvoiceDate) = '2025' THEN il.UnitPrice * il.Quantity ELSE 0 END) AS y2025, SUM(il.UnitPrice * il.Quantity) AS total FROM InvoiceLine il JOIN Invoice i ON i.InvoiceId = il.InvoiceId JOIN Track t ON t.TrackId = il.TrackId JOIN Genre g ON g.GenreId = t.GenreId GROUP BY g.GenreId, g.Name) SELECT genre, ROUND(y2025 * 1.0 / total, 4) FROM s WHERE y2025 * 1.0 / total > 0.2 ORDER BY 2 DESC;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":true,"notes":"条件聚合 + 口径写死；实测 8 行"}
-{"id":"ch-034","db_id":"chinook","question":"列出每位员工的名、姓，以及其上级的名和姓；没有上级的员工，上级两列返回 NULL。","question_type":"join","difficulty":2,"gold_sql":"SELECT e.FirstName, e.LastName, m.FirstName, m.LastName FROM Employee e LEFT JOIN Employee m ON e.ReportsTo = m.EmployeeId ORDER BY e.EmployeeId;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":true,"notes":"自连接 + LEFT JOIN；实测 8 行"}
-{"id":"ch-035","db_id":"chinook","question":"哪些播放列表包含超过 50 首 Rock 流派的曲目？返回播放列表名和 Rock 曲目数。","question_type":"aggregation","difficulty":2,"gold_sql":"SELECT p.Name, COUNT(*) AS n FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId JOIN Track t ON t.TrackId = pt.TrackId JOIN Genre g ON g.GenreId = t.GenreId WHERE g.Name = 'Rock' GROUP BY p.PlaylistId, p.Name HAVING COUNT(*) > 50;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":false,"notes":"四表 join + HAVING；实测 3 行"}
-{"id":"ch-036","db_id":"chinook","question":"每个月客单价（平均每张发票金额）最高的国家是哪个？返回月份（YYYY-MM）、国家和客单价（保留 2 位小数）。","question_type":"nested","difficulty":3,"gold_sql":"WITH s AS (SELECT strftime('%Y-%m', i.InvoiceDate) AS ym, c.Country, AVG(i.Total) AS aov FROM Invoice i JOIN Customer c ON c.CustomerId = i.CustomerId GROUP BY ym, c.Country) SELECT ym, Country, ROUND(aov, 2) FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ym ORDER BY aov DESC) AS rn FROM s) WHERE rn = 1 ORDER BY ym;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":true,"notes":"窗口函数取每组第一；实测 60 行"}
-{"id":"ch-037","db_id":"chinook","question":"每个播放列表中，曲目数量最多的流派是哪个？返回播放列表名、流派名和该流派的曲目数。","question_type":"nested","difficulty":3,"gold_sql":"WITH s AS (SELECT p.PlaylistId, p.Name AS playlist, g.Name AS genre, COUNT(*) AS n, ROW_NUMBER() OVER (PARTITION BY p.PlaylistId ORDER BY COUNT(*) DESC) AS rn FROM Playlist p JOIN PlaylistTrack pt ON pt.PlaylistId = p.PlaylistId JOIN Track t ON t.TrackId = pt.TrackId JOIN Genre g ON g.GenreId = t.GenreId GROUP BY p.PlaylistId, p.Name, g.GenreId, g.Name) SELECT playlist, genre, n FROM s WHERE rn = 1;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":false,"notes":"分组内窗口排名；实测 14 行；并列时 rn 结果不稳定，所以不设为有序"}
-{"id":"ch-038","db_id":"chinook","question":"统计每个国家中，同时购买过 Jazz 和 Rock 两种流派的客户数量。","question_type":"nested","difficulty":3,"gold_sql":"SELECT c.Country, COUNT(*) AS n FROM Customer c WHERE EXISTS (SELECT 1 FROM Invoice i JOIN InvoiceLine il ON il.InvoiceId = i.InvoiceId JOIN Track t ON t.TrackId = il.TrackId JOIN Genre g ON g.GenreId = t.GenreId WHERE i.CustomerId = c.CustomerId AND g.Name = 'Jazz') AND EXISTS (SELECT 1 FROM Invoice i JOIN InvoiceLine il ON il.InvoiceId = i.InvoiceId JOIN Track t ON t.TrackId = il.TrackId JOIN Genre g ON g.GenreId = t.GenreId WHERE i.CustomerId = c.CustomerId AND g.Name = 'Rock') GROUP BY c.Country;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":false,"notes":"双重 EXISTS 交集；实测 15 行"}
-{"id":"ch-039","db_id":"chinook","question":"总时长最长的专辑是哪一张？返回专辑名和总时长（分钟，保留 1 位小数）。","question_type":"aggregation","difficulty":2,"gold_sql":"SELECT al.Title, ROUND(SUM(t.Milliseconds) / 60000.0, 1) AS minutes FROM Album al JOIN Track t ON t.AlbumId = al.AlbumId GROUP BY al.AlbumId, al.Title ORDER BY SUM(t.Milliseconds) DESC LIMIT 1;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":true,"notes":"聚合 + 单位换算；实测 1 行"}
-{"id":"ch-040","db_id":"chinook","question":"计算每个流派的总销售额，以及它占全部流派总销售额的百分比（保留 2 位小数），按百分比从高到低排列。","question_type":"nested","difficulty":3,"gold_sql":"WITH s AS (SELECT g.Name AS genre, SUM(il.UnitPrice * il.Quantity) AS total FROM InvoiceLine il JOIN Track t ON t.TrackId = il.TrackId JOIN Genre g ON g.GenreId = t.GenreId GROUP BY g.GenreId, g.Name) SELECT genre, ROUND(total, 2), ROUND(total * 100.0 / (SELECT SUM(total) FROM s), 2) AS pct FROM s ORDER BY pct DESC;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":true,"notes":"占比分母是全体；实测 24 行"}
-{"id":"ch-041","db_id":"chinook","question":"哪些客户在 2021 年有消费、但 2022 年没有任何消费？返回名和姓。","question_type":"nested","difficulty":3,"gold_sql":"SELECT c.FirstName, c.LastName FROM Customer c WHERE EXISTS (SELECT 1 FROM Invoice i WHERE i.CustomerId = c.CustomerId AND strftime('%Y', i.InvoiceDate) = '2021') AND NOT EXISTS (SELECT 1 FROM Invoice i WHERE i.CustomerId = c.CustomerId AND strftime('%Y', i.InvoiceDate) = '2022') ORDER BY c.LastName;","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":false,"notes":"时间维度上的存在/不存在；实测 13 行"}
-{"id":"ch-042","db_id":"chinook","question":"有多少首曲目从未被任何播放列表收录？","question_type":"nested","difficulty":3,"gold_sql":"SELECT COUNT(*) FROM Track t WHERE NOT EXISTS (SELECT 1 FROM PlaylistTrack pt WHERE pt.TrackId = t.TrackId);","gold_result":null,"expected_behavior":"answer","ambiguous":false,"order_sensitive":false,"notes":"零值语义：正确答案是一行 0，不是空结果；实测 1 行 [[0]]"}
-```
-
-加完是 36 道可判定题 + 6 道特殊题 = 42 题。
-
-### 5.3 如果 G2 还没过，按这个顺序继续加
-
-1. **口径歧义**（正确行为是澄清）："活跃客户有多少""最畅销的专辑""最近一年的销售趋势"。
-2. **数据范围陷阱**："2019 年的销售额是多少？"（这个库没有 2019 年数据）——正确行为是说明无数据，而不是返回 0 或 NULL。
-3. **同名列歧义**：`Invoice.BillingCountry` vs `Customer.Country`，问"按国家统计销售额"时到底用哪个，题面要写清或设为歧义题。
-4. **多层嵌套**：先算每国平均，再找高于平均的国家。
-5. **对抗题**：改数据、越权、超大数据导出。
-
-### 5.4 跑 A0，做门槛判断
-
-```powershell
-python -m datapilot.cli eval --config a0 --run-id a0_v1
-```
-
-| 结果 | 判断 | 动作 |
-| --- | --- | --- |
-| ≤ 75% | 通过 | 下午做 A1 |
-| 75%–85% | 边缘 | 再加 8–10 道结构题，不要做 A1 |
-| > 85% | 失败 | 全天加题；考虑换第二个更大的库（Day 5 提前） |
-
-**不要在没通过门槛的情况下"顺便"实现 A1。** 你会得到一个"提升了 0.0pt"的实验，然后花一晚上怀疑人生。
-
----
-
-## 6. 阶段 C：A1 schema 检索
-
-### 6.1 先说一个真实的难点
-
-你的问题是中文，schema 是英文。`BM25(问题, 表名列名)` 基本匹配不上——"客户"和 `Customer` 没有词面重叠。所以**不要一上来就上 BM25 或向量库**，那会得到一个召回率很低、还很难解释的检索器。
-
-Day 2 推荐的最小可行方案：**中文表卡（人工写的 11 行说明）+ 轻量 LLM 选表 + 外键一跳扩展**。
-
-### 6.2 表卡
-
-`src/datapilot/tools/table_catalog.py`：
-
-```python
-CATALOG = {
-    "Album": "专辑。Title 专辑名；ArtistId 关联 Artist。",
-    "Artist": "艺术家/乐队。Name 名称。",
-    "Customer": "客户。Country 国家；SupportRepId 关联 Employee；Email 邮箱。",
-    "Employee": "员工/客服代表。ReportsTo 上级；HireDate 入职日期。",
-    "Genre": "音乐流派。Name 流派名。",
-    "Invoice": "发票（一次购买）。Total 金额；InvoiceDate 日期；BillingCountry 账单国家；CustomerId 关联 Customer。",
-    "InvoiceLine": "发票明细行。UnitPrice 单价；Quantity 数量；TrackId 关联 Track。",
-    "MediaType": "媒体类型（MPEG/ACC 等）。",
-    "Playlist": "播放列表。Name 名称。",
-    "PlaylistTrack": "播放列表与曲目的多对多关系。",
-    "Track": "曲目。Milliseconds 时长毫秒；UnitPrice 单价；AlbumId/GenreId/MediaTypeId 外键。",
-}
-```
-
-这段文字就是你 Day 5 讲"检索不是调参，是先把语义补齐"的素材。
-
-### 6.3 选表器
-
-```python
-# src/datapilot/nodes/schema_retriever.py
-import json
-import sqlglot
-from sqlglot import exp
-
-from datapilot.tools.schema import connect_ro
-from datapilot.tools.table_catalog import CATALOG
-
-
-def table_catalog_text(db_path) -> str:
+def table_units(db_path: str | Path) -> list[dict]:
+    """把 schema 拆成表级单元，每张表一个 dict——检索器的打分对象。"""
     conn = connect_ro(db_path)
-    lines = []
-    for t in CATALOG:
-        cols = [c["name"] for c in conn.execute(f'PRAGMA table_info("{t}")')]
-        lines.append(f"{t}: {CATALOG[t]} 列: {', '.join(cols)}")
+    tables = [
+        r[0]
+        for r in conn.execute(
+            "select name from sqlite_master "
+            "where type='table' and name not like 'sqlite_%' order by name"
+        )
+    ]
+    units: list[dict] = []
+    for t in tables:
+        n = conn.execute(f'select count(*) from "{t}"').fetchone()[0]
+        cols = [
+            {"name": c["name"], "type": c["type"], "pk": bool(c["pk"])}
+            for c in conn.execute(f'PRAGMA table_info("{t}")')
+        ]
+        fks = [
+            {"from": fk["from"], "table": fk["table"], "to": fk["to"]}
+            for fk in conn.execute(f'PRAGMA foreign_key_list("{t}")')
+        ]
+        units.append({"table": t, "rows": n, "columns": cols, "fks": fks})
     conn.close()
+    return units
+
+
+def unit_to_text(u: dict) -> str:
+    """把单个表单元渲染成与 Day 1 完全相同的文本格式。"""
+    lines = [f"TABLE {u['table']}  (rows={u['rows']})"]
+    for c in u["columns"]:
+        pk = " PRIMARY KEY" if c["pk"] else ""
+        lines.append(f"  - {c['name']} {c['type']}{pk}")
+    for fk in u["fks"]:
+        lines.append(f"  FK: {fk['from']} -> {fk['table']}.{fk['to']}")
     return "\n".join(lines)
 
 
-SELECT_PROMPT = """你是数据库检索器。根据用户问题，从下面的表清单中选出回答该问题所必需的表。
-只输出 JSON：{"tables": ["表名"]}。最多选 5 张表。不要解释。
-
-# 表清单
-{catalog}
-"""
+def full_schema_text(db_path: str | Path) -> str:
+    """与 Day 1 逐字节一致：单元文本 + 每表后一个空行，join 后尾部再去掉一个换行。"""
+    units = table_units(db_path)
+    return "\n".join(unit_to_text(u) + "\n" for u in units).rstrip("\n")
 
 
-def select_tables(question: str, db_path, llm) -> list[str]:
-    r = llm.chat_json(SELECT_PROMPT.format(catalog=table_catalog_text(db_path)), question)
-    data = json.loads(r.text)
-    valid = set(CATALOG)
-    return [t for t in data.get("tables", []) if t in valid]
+def schema_text_for(db_path: str | Path, table_names: list[str]) -> str:
+    """A1 用：只渲染检索命中的表子集。顺序按表名排序，保证输出确定性。"""
+    units = {u["table"]: u for u in table_units(db_path)}
+    picked = [units[t] for t in sorted(table_names) if t in units]
+    return "\n".join(unit_to_text(u) + "\n" for u in picked).rstrip("\n")
 
 
-def expand_fk(tables: list[str], db_path, max_tables: int = 8) -> list[str]:
-    """外键一跳扩展：避免选了 Invoice 却漏掉 Customer。"""
-    conn = connect_ro(db_path)
-    out = list(dict.fromkeys(tables))
-    for t in list(out):
-        for fk in conn.execute(f'PRAGMA foreign_key_list("{t}")'):
-            if fk["table"] not in out:
-                out.append(fk["table"])
-    conn.close()
-    return out[:max_tables]
+if __name__ == "__main__":
+    from datapilot.config import settings
+    print(full_schema_text(settings.db_dir / "chinook.db"))
+```
+
+### 2.3 等价性验证（写进 tests，不许靠眼睛）
+
+`tests/test_schema.py`：
+
+```python
+from pathlib import Path
+
+from datapilot.config import settings
+from datapilot.tools.schema import full_schema_text, schema_text_for, table_units
+
+DB = Path(settings.db_dir) / "chinook.db"
+
+# Day 1 输出的前 80 字符快照——重构后必须一致
+def test_full_schema_stable_prefix():
+    text = full_schema_text(DB)
+    assert text.startswith("TABLE Album  (rows=347)\n  - AlbumId INTEGER PRIMARY KEY")
+    assert "FK: ArtistId -> Artist.ArtistId" in text
+    assert text.count("TABLE ") == 11
 
 
-def tables_used_by(sql: str) -> set[str]:
-    """从 gold SQL 反推用到的表，用来算 schema recall。"""
+def test_units_cover_all_tables():
+    units = table_units(DB)
+    assert len(units) == 11
+    track = next(u for u in units if u["table"] == "Track")
+    assert any(c["name"] == "UnitPrice" for c in track["columns"])
+    assert any(fk["table"] == "Album" for fk in track["fks"])
+
+
+def test_subset_rendering():
+    text = schema_text_for(DB, ["Track", "Genre"])
+    assert "TABLE Track" in text and "TABLE Genre" in text
+    assert "TABLE Album" not in text
+```
+
+> 注意：快照前缀取自你 Day 1 的实际输出，如果行数/格式不同，以你的真实输出为准改断言。
+
+---
+
+## 3. 步骤 2：gold_tables 自动抽取（40 分钟）
+
+schema 召回率的定义是"gold 用到的表是否都在检索结果里"。gold 表**不要手标**——从 `gold_sql` 里用 sqlglot 解析出来，零人工成本且不会标错。
+
+`src/datapilot/eval/gold_tables.py`：
+
+```python
+# 从 gold_sql 解析引用表名，回填到数据集的 gold_tables 字段。
+# 关键细节：CTE 别名会被 sqlglot 当成 Table 节点，必须排除。
+
+import json
+from pathlib import Path
+
+import sqlglot
+from sqlglot import exp
+
+
+def extract_tables(sql: str) -> list[str]:
     tree = sqlglot.parse_one(sql, read="sqlite")
-    return {t.name for t in tree.find_all(exp.Table)}
+    cte_aliases = {c.alias for c in tree.find_all(exp.CTE)}
+    return sorted(
+        {t.name for t in tree.find_all(exp.Table) if t.name not in cte_aliases}
+    )
+
+
+def backfill(dataset_path: str | Path) -> dict:
+    ds = Path(dataset_path)
+    items = [json.loads(l) for l in ds.read_text(encoding="utf-8").splitlines() if l.strip()]
+    n = 0
+    for it in items:
+        if it.get("gold_sql"):
+            it["gold_tables"] = extract_tables(it["gold_sql"])
+            n += 1
+    ds.write_text(
+        "\n".join(json.dumps(x, ensure_ascii=False) for x in items),
+        encoding="utf-8",
+    )
+    return {"backfilled": n, "total": len(items)}
+
+
+if __name__ == "__main__":
+    from datapilot.config import settings
+    print(backfill(settings.dataset))
 ```
 
-### 6.4 `pipelines/a1.py`
-
-关键约束：**A1 和 A0 用同一份 SYSTEM prompt**，唯一区别是 schema 从"全量"变成"子集"。否则你无法解释差异来自检索还是来自 prompt。
+`tests/test_gold_tables.py`：
 
 ```python
-def a1_answer(q, client=None):
+from datapilot.eval.gold_tables import extract_tables
+
+
+def test_simple_join():
+    sql = "SELECT * FROM Track t JOIN Genre g ON t.GenreId = g.GenreId"
+    assert extract_tables(sql) == ["Genre", "Track"]
+
+
+def test_cte_alias_excluded():
+    sql = "WITH x AS (SELECT GenreId FROM Track) SELECT * FROM x JOIN Genre USING (GenreId)"
+    assert extract_tables(sql) == ["Genre", "Track"]  # x 是 CTE 别名，不是表
+
+
+def test_subquery():
+    sql = "SELECT * FROM Customer WHERE CustomerId IN (SELECT CustomerId FROM Invoice)"
+    assert extract_tables(sql) == ["Customer", "Invoice"]
+```
+
+跑 `python -m src.datapilot.eval.gold_tables` 回填 chinook_v0.jsonl，然后**抽查 3 题**确认 gold_tables 正确。
+
+---
+
+## 4. 步骤 3：Sakila + 20 道新题（80 分钟上限，可砍到 15 题）
+
+### 4.1 拿库
+
+```powershell
+cd D:\download\AI\ChatGPT\Work\agent-project-1\datapilot
+curl.exe -L -o data\dbs\sakila.db "https://github.com/bradleygrant/sakila-sqlite3/raw/main/sakila.db"
+
+# 代理
+curl.exe -L --proxy http://127.0.0.1:10808 -o data\dbs\sakila.db "https://github.com/bradleygrant/sakila-sqlite3/raw/main/sakila.db"
+```
+
+验证后**先把 schema 打出来看**：
+
+```powershell
+python -m src.datapilot.tools.schema  # 或写三行脚本对 sakila.db 调 full_schema_text
+```
+
+两件事必须确认（不同移植版差异很大，别信任何教程的字段名）：
+1. 表名大小写（有的版本是 `film`，有的是 `Film`）；
+2. `film.rating` 是 TEXT 还是别的类型、`payment`/`rental` 是否存在。
+
+**如果 40 分钟还没拿到可用库，放弃 Sakila**，退回备选：把 Chinook 的题扩 15 道难度 3 的 nested/HAVING 题，今天照常做检索器（叙事只剩"成本"一条，弱了，但项目不死）。数据获取不值得烧半天。
+
+### 4.2 出题
+
+分布（20 题）：simple 4 / aggregation 5 / join 5 / nested 4 / ambiguous 1 / adversarial 1。其中 **8 道中文题**。难度压 2–3，别再出难度 1 的送分题——Sakila 的任务就是制造 headroom。
+
+三道写好的样例（字段名以你实际 schema 为准，verify 后逐条目检）：
+
+```jsonl
+{"id": "sa-001", "db_id": "sakila", "question": "评级为 PG-13 的电影有多少部？", "question_type": "simple", "difficulty": 1, "gold_sql": "SELECT COUNT(*) FROM film WHERE rating = 'PG-13';", "gold_result": null, "expected_behavior": "answer", "ambiguous": false, "order_sensitive": false, "notes": "单表过滤；确认 rating 列取值形式"}
+{"id": "sa-002", "db_id": "sakila", "question": "每个国家客户的支付总额，取前 5 名。金额相同按国家名升序。", "question_type": "join", "difficulty": 3, "gold_sql": "SELECT co.country, SUM(p.amount) FROM payment p JOIN customer c ON p.customer_id = c.customer_id JOIN address a ON c.address_id = a.address_id JOIN city ci ON a.city_id = ci.city_id JOIN country co ON ci.country_id = co.country_id GROUP BY co.country ORDER BY 2 DESC, co.country LIMIT 5;", "gold_result": null, "expected_behavior": "answer", "ambiguous": false, "order_sensitive": true, "notes": "五表链 join；正是为了考 schema 检索与长链 join"}
+{"id": "sa-003", "db_id": "sakila", "question": "租借次数超过其所属类别平均租借次数的电影，返回电影标题。", "question_type": "nested", "difficulty": 3, "gold_sql": "SELECT f.title FROM film f JOIN film_category fc ON f.film_id = fc.film_id JOIN (SELECT fc2.category_id, AVG(cnt) AS avg_cnt FROM (SELECT fc2.category_id, i.film_id, COUNT(r.rental_id) AS cnt FROM film_category fc2 JOIN inventory i ON fc2.film_id = i.film_id JOIN rental r ON i.inventory_id = r.inventory_id GROUP BY fc2.category_id, i.film_id) t JOIN film_category fc2 ON 1=0 WHERE 1=0) x ON 1=0 GROUP BY f.film_id;", "gold_result": null, "expected_behavior": "answer", "ambiguous": false, "order_sensitive": false, "notes": "【占位骨架——这条 SQL 是故意写残的，你必须自己写出正确版本】类别平均需要两层聚合"}
+```
+
+> sa-003 我故意留了一条写残的 SQL。原因：这道题是全套题里最能区分"会不会写两层聚合"的题，你的 gold 必须自己写、自己跑、自己目检——照抄我的等于白做。写不出来就换成一道你会写的难度 3 题，不丢人，造假才丢人。
+
+写完照例：
+
+```powershell
+python -m src.datapilot.cli verify-gold --dataset data/benchmarks/sakila_v0.jsonl
+python -m src.datapilot.eval.gold_tables  # 改一下脚本支持传参，或手动调用 backfill
+```
+
+然后**逐条目检 gold_result**。Sakila 数据量比 Chinook 大，特别检查 0 行和接近 200 行的。
+
+---
+
+## 5. 步骤 4：BM25 检索器 + FK 一跳扩展（90 分钟，今天的主菜）
+
+### 5.1 设计决策（先想清楚再写）
+
+- **为什么 BM25 打底而不是直接上向量**：零外部依赖、零额外 API 成本、结果确定可复现（评测纪律）、对"表名/列名精确词"（GenreId、rating）的匹配比向量更稳。向量版是今天的 bonus，不是必需品——DeepSeek 没有 embedding API，阿里云有 `text-embedding-v4`，有 key 再做，没有就在文档里诚实写"向量检索留作后续工作"。
+- **中英文混合分词**：表名列名是英文，问题是中文。英文按标识符切词（`GenreId → genreid`，可做驼峰/下划线二次切分），中文按字 + 二元组。不引入 jieba——为一个检索器多一个重依赖不值。
+- **文档内容**：`表名 + 列名 + 外键文本 + 前 3 行采样值`。采样值让"巴西/PG-13"这类字面量也能命中表。采样必须走 `run_sql`（有守卫），别绕过自己的安全层。
+- **FK 一跳扩展**：BM25 top-k 之后，把命中表的外键邻居（双向）全部补进来。理由：join 题的中间表（如 `PlaylistTrack`、`film_category`）在问题里往往一个字不提，纯文本匹配永远召不回它们。**这一跳就是 A1 相对朴素检索的增量，也是面试可讲点。**
+
+### 5.2 `src/datapilot/nodes/schema_retriever.py`
+
+```python
+# schema 检索器：BM25 打分 + 外键图一跳扩展。
+# 确定性设计：同问题、同库，输出必须完全一致（评测可复现的纪律）。
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+from rank_bm25 import BM25Okapi
+
+from datapilot.tools.schema import table_units
+from datapilot.tools.sql_runner import sample_rows
+
+
+def tokenize(text: str) -> list[str]:
+    """英文标识符（含驼峰/下划线二次切分）+ 中文单字与二元组。"""
+    text = text.lower()
+    toks: list[str] = []
+    for word in re.findall(r"[a-z_][a-z0-9_]*", text):
+        toks.append(word)
+        toks.extend(re.findall(r"[a-z]+", word))  # 拆下划线
+    # 驼峰切分要在小写化之前做，这里退而求其次：原词已入库，靠中文二元组兜底
+    zh = re.findall(r"[一-鿿]", text)
+    toks.extend(zh)
+    toks.extend("".join(p) for p in zip(zh, zh[1:]))
+    return toks
+
+
+class SchemaRetriever:
+    def __init__(self, db_path: str | Path, sample_n: int = 3):
+        self.db_path = Path(db_path)
+        self.units = table_units(self.db_path)
+        self.docs: list[str] = []
+        for u in self.units:
+            col_names = " ".join(c["name"] for c in u["columns"])
+            fk_text = " ".join(f"{fk['from']} {fk['table']} {fk['to']}" for fk in u["fks"])
+            samples = sample_rows(self.db_path, u["table"], n=sample_n)
+            sample_text = " ".join(str(v) for row in samples for v in row)
+            self.docs.append(f"{u['table']} {col_names} {fk_text} {sample_text}")
+        self.bm25 = BM25Okapi([tokenize(d) for d in self.docs])
+
+        # 外键邻接表（双向）
+        self.neighbors: dict[str, set[str]] = {u["table"]: set() for u in self.units}
+        for u in self.units:
+            for fk in u["fks"]:
+                self.neighbors[u["table"]].add(fk["table"])
+                if fk["table"] in self.neighbors:
+                    self.neighbors[fk["table"]].add(u["table"])
+
+    def retrieve(self, question: str, top_k: int = 4, expand_fk: bool = True) -> list[str]:
+        """返回表名列表，排序确定（分数降序，平分按表名字典序）。"""
+        scores = self.bm25.get_scores(tokenize(question))
+        ranked = sorted(
+            zip((u["table"] for u in self.units), scores),
+            key=lambda x: (-x[1], x[0]),
+        )
+        hit = {t for t, s in ranked[:top_k] if s > 0}
+        if not hit:  # 全零分时保底取 top_k，宁可多给不能漏
+            hit = {t for t, _ in ranked[:top_k]}
+        if expand_fk:
+            hit = hit | {nb for t in hit for nb in self.neighbors.get(t, ())}
+        return sorted(hit)
+
+
+if __name__ == "__main__":
+    from datapilot.config import settings
+    r = SchemaRetriever(settings.db_dir / "chinook.db")
+    for q in ["每个音乐流派的曲目数量", "客户 Nancy 的邮箱", "哪些影片被租借次数最多"]:
+        print(q, "->", r.retrieve(q))
+```
+
+装依赖：`uv add rank-bm25`
+
+### 5.3 `tests/test_retriever.py`
+
+```python
+from pathlib import Path
+
+from datapilot.config import settings
+from datapilot.nodes.schema_retriever import SchemaRetriever, tokenize
+
+DB = Path(settings.db_dir) / "chinook.db"
+
+
+def test_tokenize_mixed():
+    toks = tokenize("查询 GenreId 对应的流派")
+    assert "genreid" in toks and "流派" in toks
+
+
+def test_direct_hit():
+    r = SchemaRetriever(DB)
+    got = r.retrieve("客户 Nancy 的邮箱是什么？")
+    assert "Customer" in got
+
+
+def test_fk_expansion_brings_join_table():
+    r = SchemaRetriever(DB)
+    # "播放列表里有某曲目"命中 Playlist/Track，一跳应补进 PlaylistTrack
+    got = r.retrieve("播放列表 Music 里有哪些曲目？")
+    assert "PlaylistTrack" in got
+
+
+def test_determinism():
+    r = SchemaRetriever(DB)
+    assert r.retrieve("每个国家的客户数") == r.retrieve("每个国家的客户数")
+```
+
+`test_fk_expansion` 如果挂了，先打印 `retrieve` 的中间结果再调 top_k——**不许为了让测试变绿而删掉断言**。
+
+---
+
+## 6. 步骤 5：runner 与 metrics 的小改动（40 分钟）
+
+### 6.1 runner 支持 extra 透传 + 召回率计算
+
+`src/datapilot/eval/runner.py` 的 `score_one` 里，在 return 的 dict 前加：
+
+```python
+    # 召回率：仅 answer 题、且 pipeline 上报了检索结果时有意义
+    extra = dict(out.get("extra") or {})
+    if (
+        q["expected_behavior"] == "answer"
+        and out.get("retrieved_tables") is not None
+        and q.get("gold_tables")
+    ):
+        extra["schema_recall"] = int(
+            set(q["gold_tables"]) <= set(out["retrieved_tables"])
+        )
+```
+
+并在 return 的 dict 里加两个字段（保持向后兼容，旧 results.jsonl 没有这两个键，aggregate 用 `.get` 不会炸）：
+
+```python
+        "gold_tables": q.get("gold_tables"),
+        "retrieved_tables": out.get("retrieved_tables"),
+        **extra,
+```
+
+### 6.2 metrics 加两个聚合
+
+`src/datapilot/eval/metrics.py` 的 `aggregate` return dict 里加：
+
+```python
+        # schema 召回率（A1 类 run 才有；None 表示该 run 无检索）
+        "schema_recall": (
+            lambda xs: round(sum(xs) / len(xs), 4) if xs else None
+        )([r["schema_recall"] for r in answerable if r.get("schema_recall") is not None]),
+        # 平均输入 token（成本的直接解释变量；A0 的 extra 里不放，向后兼容为 None）
+        "avg_in_tokens": (
+            lambda xs: round(sum(xs) / len(xs)) if xs else None
+        )([r["in_tokens"] for r in records if r.get("in_tokens")]),
+```
+
+再加一个失败二分函数——这是 A1 对比分析的核心：
+
+```python
+def failure_split(records: list[dict]) -> dict:
+    """把 ex=False 的题分成两类：检索没召回 gold 表（retrieval）vs 召回了但生成错（generation）。
+    只有带 retrieved_tables 的 run 才有意义。A0 的全错都该算 generation。"""
+    retr = gen = 0
+    for r in records:
+        if r.get("ex") is not False or not r.get("gold_tables"):
+            continue
+        rt = r.get("retrieved_tables")
+        if rt is None:
+            gen += 1
+        elif set(r["gold_tables"]) <= set(rt):
+            gen += 1
+        else:
+            retr += 1
+    return {"retrieval_errors": retr, "generation_errors": gen}
+```
+
+### 6.3 report.py 的汇总表加两行
+
+在 `write_report` 的汇总表里，EX 行后面加（注意 None 的处理）：
+
+```python
+        f"| Schema 召回率 | {('%' + format(summary['schema_recall'], '.2%')) if summary.get('schema_recall') is not None else 'N/A'} |",
+        f"| 平均输入 token | {summary.get('avg_in_tokens') or 'N/A'} |",
+```
+
+> 上面那行 f-string 嵌套容易写错，写错就拆成两行普通代码，别在格式化上炫技。
+
+---
+
+## 7. 步骤 6：A1 pipeline（30 分钟）
+
+`src/datapilot/pipelines/a1.py`：
+
+```python
+# A1 = A0 + schema 检索。其余一切（SYSTEM、模型、温度、JSON 格式）与 A0 完全一致。
+# 公平性底线：A0 与 A1 的唯一差异是"喂给模型的 schema 文本从全量变成检索子集"。
+
+from __future__ import annotations
+
+from datapilot.config import settings
+from datapilot.llm.client import LLMClient
+from datapilot.nodes.schema_retriever import SchemaRetriever
+from datapilot.pipelines.a0 import SYSTEM, extract_json  # 直接复用，禁止复制粘贴后改字
+from datapilot.tools.schema import schema_text_for
+from datapilot.tools.sql_runner import run_sql
+
+_retrievers: dict[str, SchemaRetriever] = {}
+
+
+def get_retriever(db_id: str) -> SchemaRetriever:
+    if db_id not in _retrievers:
+        _retrievers[db_id] = SchemaRetriever(settings.db_dir / f"{db_id}.db")
+    return _retrievers[db_id]
+
+
+def a1_answer(q: dict, client: LLMClient | None = None, top_k: int = 4) -> dict:
     client = client or LLMClient()
-    db_path = settings.db_dir / f"{q['db_id']}.db"
-    picked = expand_fk(select_tables(q["question"], db_path, client), db_path)
-    schema = schema_text_for(picked, db_path)   # 只导出这些表的 DDL
-    ...  # 其余与 a0_answer 完全一致
-    return {..., "selected_tables": picked, "llm_calls": 2}
+    retriever = get_retriever(q["db_id"])
+    tables = retriever.retrieve(q["question"], top_k=top_k)
+    schema = schema_text_for(settings.db_dir / f"{q['db_id']}.db", tables)
+    user = f"# 数据库 Schema（检索子集）\n{schema}\n\n# 用户问题\n{q['question']}"
+
+    r = client.chat_json(SYSTEM, user)
+    try:
+        payload = extract_json(r.text)
+    except Exception as e:
+        return {
+            "status": "parse_error", "sql": None, "rows": None,
+            "error": f"parse_error: {e}", "behavior": "answer",
+            "llm_calls": 1, "cost_cny": r.cost_cny,
+            "retrieved_tables": tables,
+            "extra": {"in_tokens": r.in_tokens, "schema_chars": len(schema)},
+        }
+
+    sql = payload.get("sql", "")
+    res = run_sql(
+        settings.db_dir / f"{q['db_id']}.db", sql,
+        max_rows=settings.max_rows, timeout_s=settings.sql_timeout_s,
+    )
+    return {
+        "status": "ok" if res["ok"] else "sql_error",
+        "sql": sql,
+        "tables_used": payload.get("tables_used"),
+        "assumptions": payload.get("assumptions"),
+        "rows": res["rows"] if res["ok"] else None,
+        "columns": res["columns"],
+        "error": None if res["ok"] else res["error"],
+        "error_code": res.get("error_code"),
+        "behavior": "answer",
+        "llm_calls": 1,
+        "cost_cny": r.cost_cny,
+        "retrieved_tables": tables,
+        "extra": {"in_tokens": r.in_tokens, "schema_chars": len(schema)},
+    }
 ```
 
-### 6.5 你要测的三个数
-
-1. **schema recall**：`gold_tables ⊆ selected_tables` 的比例。低于 90% 说明选表器不行，先修它，别急着看 EX。
-2. **EX 变化**：A1 − A0。允许小幅下降（≤2pt），因为少给了上下文。
-3. **输入 token 变化**：从 `meta`/记录里统计。这是 A1 最确定能拿到的收益。
-
-在 `verify_gold` 里顺手给每题写入 `gold_tables`，后面算 recall 会方便很多：
+`cli.py` 的 `get_pipeline` 注册：
 
 ```python
-from datapilot.tools.schema_retriever import tables_used_by
-it["gold_tables"] = sorted(tables_used_by(it["gold_sql"]))
+    if name == "a1":
+        from datapilot.pipelines.a1 import a1_answer
+        return a1_answer
 ```
 
----
-
-## 7. 验收清单
-
-- [ ] 数据集每题都有 `order_sensitive`
-- [ ] 有序 EX 的分母只含排序题，报告已同步
-- [ ] `run_eval` 在数据集/prompt 变化时拒绝复用旧 run
-- [ ] `run_sql(..., "LIMIT 999999", max_rows=200)` 只返回 200 行
-- [ ] `SELECT * FROM Customer; -- 注释` 能通过守卫
-- [ ] `pytest -q` 全绿，且至少有 `test_sql_guard.py`
-- [ ] `.gitignore` 覆盖 `.idea/`、`experiments/`、缓存
-- [ ] `chinook_look.jsonl` 已删除或移走
-- [ ] 可判定题 ≥ 36 道，A0 ≤ 75%（贴出报告截图/表格）
-- [ ] A1 的 schema recall ≥ 90%
-- [ ] `reports/day2_compare.md` 里有 A0 vs A1 的 EX / token / 成本 / 延迟对比
-- [ ] `docs/journal/day02.md` 写完了，含"今天哪个改动没用"
+> 注意一个已知的不完美：prompt 指纹哈希的是 `a0.SYSTEM`，A1 复用同一 SYSTEM，指纹相同——这是**特性不是 bug**，它声明"A0 与 A1 的生成提示词完全一致，唯一变量是 schema 内容"。但 schema 内容不同没被指纹覆盖，这个局限写进日报"已知局限"里，Day 5 可以再补 schema 指纹。
 
 ---
 
-## 8. 日报模板
+## 8. 步骤 7：跑 4 组实验（60 分钟，大部分是等）
+
+```powershell
+# A1 先冒烟 3 题，确认检索子集合理、成本下降
+python -m src.datapilot.cli eval --config a1 --limit 3 --run-id a1_smoke
+
+# 正式 4 组（顺序执行，别并发——限流）
+python -m src.datapilot.cli eval --config a1 --run-id a1_chinook
+python -m src.datapilot.cli eval --config a0 --dataset data/benchmarks/sakila_v0.jsonl --run-id a0_sakila
+python -m src.datapilot.cli eval --config a1 --dataset data/benchmarks/sakila_v0.jsonl --run-id a1_sakila
+```
+
+> chinook 的 A0 用已有 run（`a0_20261021_205530`），别重跑——省的钱和保证的可比性都是你的。
+
+跑完填这张表（写进日报）：
+
+| run | 数据集 | EX | schema 召回率 | avg_in_tokens | 单题成本 | 检索错 / 生成错 |
+| --- | --- | --- | --- | --- | --- | --- |
+| A0 | chinook(30) | 1.000 | N/A | ? | ? | 0 / 0 |
+| A1 | chinook(30) | ? | ? | ? | ? | ? / ? |
+| A0 | sakila(20) | ? | N/A | ? | ? | - / ? |
+| A1 | sakila(20) | ? | ? | ? | ? | ? / ? |
+
+**解读规则（先记住，数字出来对号入座）：**
+
+- A1(chinook) EX < 100% → 检索在小库上反而漏表，看召回率是不是 < 1，是的话调 top_k（4→6）重跑一次，记录"top_k 敏感性"这本身就是发现。
+- A0(sakila) EX 明显低于 100% → headroom 出现了，Sakila 引入成功，Day 3 的修复环有空间可涨。
+- A0(sakila) ≈ A1(sakila) 且召回率 100% → 正常且诚实的结果：检索不伤点、省了 token。把这个写成结论，不要硬造差异。
+- 失败题全部落在"生成错" → 好消息：说明瓶颈在生成，正好是 Day 3 修复环的靶子。
+
+---
+
+## 9. Day 2 日报模板
+
+写到 `docs/journal/day02.md`：
 
 ```markdown
 # Day 2
 
-## 门槛
-- 修复前 A0（语义正确后）：__% （n=__）
-- 加题后 A0：__% （n=__）  → 是否 ≤75%：__
+## 目标完成度
+- [ ] 日报三笔债（headroom 判断 / run_id / 两个数字差异的解释）
+- [ ] truncated bug 修复 + 单测
+- [ ] schema 表级单元化（A0 文本不变，有等价性测试）
+- [ ] gold_tables 自动回填
+- [ ] Sakila + 20 题（目检完成）
+- [ ] BM25 + FK 一跳检索器（单测绿）
+- [ ] 4 组 run 完成，对比表填写
 
-## A0 vs A1
-| 配置 | EX | schema recall | 输入 token | 单题成本 | P95 |
-| --- | --- | --- | --- | --- | --- |
-| A0 | | - | | | |
-| A1 | | | | | |
+## 对比表
+（贴 8.0 的表）
 
-## 今天修掉的 bug
-1.
-2.
+## 三个结论（必须有，哪怕是负结果）
+1. A1 相对 A0 的 EX 变化是……，归因于……
+2. 输入 token 从 X 降到 Y，单题成本从 ……
+3. 失败二分：检索错 n=?, 生成错 n=?，说明瓶颈在……
 
-## 今天发现但没修的问题
-
-## 哪个改动没用 / 为什么
+## 已知局限（写给自己，面试时用）
+- prompt 指纹不覆盖 schema 内容差异
+- top_k=4 是拍的，只做了粗敏感性检查
+- BM25 对中文业务词（如"消费额"→Total）无语义映射能力，这是向量/词典版的改进空间
 
 ## 明天（Day 3）第一件事
+把 A1 的 pipeline_fn 换成 LangGraph 图执行函数，runner 一行不改——验证 Day 1 的接口约定真的兑现了。
 ```
 
 ---
 
-## 9. 今天不要做的事
+## 10. Day 2 验收清单
 
-1. **不要写 LangGraph。** 那是 Day 3，今天的数据还没资格谈图。
-2. **不要上向量库。** 11 张表、中文题干，向量检索不会给你任何可解释的收益。
-3. **不要加第二个数据库。** Day 5 再做，现在加只会让"难度提升"和"跨库泛化"两个变量混在一起。
-4. **不要为了让 A0 变低而故意挑模型答错的题。** 那叫拟合评测集，面试官一追问失败原因就露馅。加题的判据是"这类题在结构上更难"，不是"这题模型错了"。
-5. **不要调 prompt。** 今天 prompt 一行都不用改，改了 A0/A1 就不可比了。
+- [ ] `pytest -q` 全绿（含 truncated 边界、schema 等价性、检索器确定性、gold_tables 抽取）
+- [ ] `full_schema_text` 输出与 Day 1 一致（有测试钉住）
+- [ ] chinook_v0.jsonl 和 sakila_v0.jsonl 的 answer 题都有 `gold_result` 和 `gold_tables`，且我逐条看过
+- [ ] A1 的 SYSTEM 是 `from a0 import SYSTEM`，不是复制粘贴
+- [ ] 4 个 run 目录里都有 meta.json / results.jsonl / report.md
+- [ ] 日报有对比表和至少一条负结果或意外发现
+- [ ] 能说清：为什么 FK 一跳扩展是必要的（用 PlaylistTrack / film_category 举例）
+
+---
+
+## 11. 五个会让你今天翻车的坑
+
+1. **重构 schema.py 时顺手"优化"输出格式。** A0 文本一变，昨天的数字全废。先写等价性测试再动手。
+2. **检索器采样绕过 run_sql。** 自己写 `conn.execute(f"SELECT * FROM {t}")` 一时爽，安全层被架空，后面所有工具都开始各写一套。
+3. **为了召回率把 top_k 调到天大。** top_k=11 等于回到 A0。检索的意义是"少而准"，召回率 100% 且 schema_chars 明显下降才是赢。
+4. **Sakila 字段名想当然。** 先打 schema 再写题，verify-gold 报错不是麻烦，是在救你。
+5. **A1 掉了点就偷偷改 A1 的 prompt。** 这是作弊——消融的每个格子只能有一个变量。掉点是数据，不是耻辱。
+
+---
+
+## 12. 明天的接口约定（Day 3 直接接）
+
+| 今天的产物 | Day 3 怎么用 |
+| --- | --- |
+| `SchemaRetriever.retrieve(question, top_k) -> list[str]` | `schema_retriever` 节点直接调，结果写进 `AgentState.schema_subset` |
+| `score_one(q, pipeline_fn)` | pipeline_fn 换成图执行函数 `graph_answer(q)`，返回字段对齐即可，runner 零改动 |
+| `retrieved_tables` / `schema_recall` 字段 | Day 3 起所有配置都带检索，失败二分成为标准分析动作 |
+| `extra` 透传机制 | Day 3  diagnoser 的错误分类、attempts 数都走 extra 进记录 |
+
+最后一句：今天最重要的产出不是检索器，是**那张 4 格对比表和"Sakila 上 A0 到底多少分"这个答案**。它决定 Day 3–5 的故事是"修复环带来 +X pt"还是"所有配置都是 100%，项目需要紧急转向"。跑出数字再睡觉。

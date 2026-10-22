@@ -153,7 +153,7 @@ def run_sql(
         return {
             "ok": True, "error": None, "error_code": None,
             "columns": cols, "rows": rows,
-            "truncated": len(rows) >= max_rows,  # 是否可能被截断
+            "truncated": truncated,   # 用上面算好的值，不要重新 len(rows) >= max_rows
             "elapsed_ms": round((time.perf_counter() - t0) * 1000),  # 耗时（毫秒）
         }
     # 任何异常都走 classify_error 归类，仍返回统一结构，永不向上抛——方便上层批量跑评测；

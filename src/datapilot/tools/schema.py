@@ -15,13 +15,13 @@ def connect_ro(db_path: str | Path) -> sqlite3.Connection:
     return conn
 
 
-# 得到其写system prompt 的规则：
-# 如：1. 只允许使用下面 schema 中出现的表和列，禁止臆造表名或列名。
-def full_schema_text(db_path: str | Path) -> str:
-    """导出完整 schema"""
+
+def table_units(db_path: str | Path) -> list[dict]:
+    """把 schema 拆成表级单元，每张表一个 dict——检索器的打分对象。"""
     conn = connect_ro(db_path)
-    lines: list[str] = []
-    # 从系统表 sqlite_master 里查表名
+    # 获取该数据库下的所有用户表名称
+    # SELECT name FROM sqlite_master 是 SQLite 中一条查询数据库模式（schema）元数据的 SQL 语句（sqlite_master 系统表中查询所有对象名）
+    # 过滤掉sqlite_ 系统表
     tables = [
         r[0]
         for r in conn.execute(
@@ -29,24 +29,52 @@ def full_schema_text(db_path: str | Path) -> str:
             "where type='table' and name not like 'sqlite_%' order by name"
         )
     ]
+    units: list[dict] = []
     for t in tables:
-        # 查这张表有多少行，写进标题，例如 TABLE Track (rows=3503)
+        # .fetchone()：取第一行结果，返回元组，如 (347,)，就是后去该表中有多少行元素
         n = conn.execute(f'select count(*) from "{t}"').fetchone()[0]
-        lines.append(f"TABLE {t}  (rows={n})")
 
-        # PRAGMA table_info(表) 返回该表的每一列（列名、类型、是否主键等）
-        for c in conn.execute(f'PRAGMA table_info("{t}")'):
-            # 每列格式化成一行：- 列名 类型[ PRIMARY KEY]。例如：  - TrackId INTEGER PRIMARY KEY - Name NVARCHAR(200)
-            pk = " PRIMARY KEY" if c["pk"] else ""
-            lines.append(f"  - {c['name']} {c['type']}{pk}")
-
-        # PRAGMA foreign_key_list(表) 返回该表的所有外键
-        for fk in conn.execute(f'PRAGMA foreign_key_list("{t}")'):
-            # 每行输出成 FK: 本表列 -> 目标表.目标列。例如：  FK: AlbumId -> Album.AlbumId
-            lines.append(f"  FK: {fk['from']} -> {fk['table']}.{fk['to']}")
-        lines.append("")
+        # 获取当前表 t 的列定义信息，整理成字典列表
+        # PRAGMA table_info("{t}")：SQLite 的 PRAGMA 命令，返回该表每一列的元数据
+        # c.keys() = ['cid'(列序号), 'name'(列名), 'type'(列名), 'notnull'(列名), 'dflt_value'(默认值), 'pk'(是否为主键的一部分)]
+        cols = [
+            {"name": c["name"], "type": c["type"], "pk": bool(c["pk"])}
+            for c in conn.execute(f'PRAGMA table_info("{t}")')
+        ]
+        # 获取当前表 t 的外键约束列表，整理成字典列表
+        fks = [
+            {"from": fk["from"], "table": fk["table"], "to": fk["to"]}
+            for fk in conn.execute(f'PRAGMA foreign_key_list("{t}")')
+        ]
+        units.append({"table": t, "rows": n, "columns": cols, "fks": fks})
     conn.close()
+    return units
+
+
+def unit_to_text(u: dict) -> str:
+    """把单个表单元渲染成与 Day 1 完全相同的文本格式。"""
+    lines = [f"TABLE {u['table']}  (rows={u['rows']})"]
+    for c in u["columns"]:
+        pk = " PRIMARY KEY" if c["pk"] else ""
+        lines.append(f"  - {c['name']} {c['type']}{pk}")
+    for fk in u["fks"]:
+        lines.append(f"  FK: {fk['from']} -> {fk['table']}.{fk['to']}")
     return "\n".join(lines)
+
+
+# 得到其写system prompt 的规则：
+# 如：1. 只允许使用下面 schema 中出现的表和列，禁止臆造表名或列名。
+def full_schema_text(db_path: str | Path) -> str:
+    """与 Day 1 逐字节一致：单元文本 + 每表后一个空行，join 后尾部再去掉一个换行。"""
+    units = table_units(db_path)
+    return "\n".join(unit_to_text(u) + "\n" for u in units).rstrip("\n")
+
+
+def schema_text_for(db_path: str | Path, table_names: list[str]) -> str:
+    """A1 用：只渲染检索命中的表子集。顺序按表名排序，保证输出确定性。"""
+    units = {u["table"]: u for u in table_units(db_path)}
+    picked = [units[t] for t in sorted(table_names) if t in units]
+    return "\n".join(unit_to_text(u) + "\n" for u in picked).rstrip("\n")
 
     # 输出大致：
     # TABLE Album  (rows=347)
@@ -58,23 +86,10 @@ def full_schema_text(db_path: str | Path) -> str:
     # TABLE Artist  (rows=275)
     #   - ArtistId INTEGER PRIMARY KEY
     #   - Name NVARCHAR(120)
-    #
-    # TABLE Track  (rows=3503)
-    #   - TrackId INTEGER PRIMARY KEY
-    #   - Name NVARCHAR(200)
-    #   - AlbumId INTEGER
-    #   - MediaTypeId INTEGER
-    #   - GenreId INTEGER
-    #   - Composer NVARCHAR(220)
-    #   - Milliseconds INTEGER
-    #   - Bytes INTEGER
-    #   - UnitPrice NUMERIC(10,2)
-    #   FK: AlbumId -> Album.AlbumId
-    #   FK: GenreId -> Genre.GenreId
-    #   FK: MediaTypeId -> MediaType.MediaTypeId
-    #   ...
+    # ......
 
 if __name__ == "__main__":
     from datapilot.config import settings
     print(settings.db_dir)
-    print(full_schema_text(settings.db_dir / "chinook.db"))
+    # print(full_schema_text(settings.db_dir / "chinook.db"))
+    print(full_schema_text(settings.db_dir / "sakila.db"))
