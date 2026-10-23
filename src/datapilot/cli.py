@@ -26,6 +26,9 @@ def get_pipeline(name: str):
     if name == "a0":
         from datapilot.pipelines.a0 import a0_answer
         return a0_answer
+    if name == "a1":
+        from datapilot.pipelines.a1 import a1_answer
+        return a1_answer
     raise typer.BadParameter(f"未知 pipeline：{name}")
 
 

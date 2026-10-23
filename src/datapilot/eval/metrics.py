@@ -123,6 +123,14 @@ def aggregate(records: list[dict]) -> dict:
         "n_answerable": len(answerable),  # 可回答题数。
         "ex": rate(ex, len(answerable)),  # 可回答题的精确匹配率（主指标）。
         "ex_ordered": rate(ex_ord, len(ord_records)),  # 有序口径 EX，分母仍用 answerable
+        # schema 召回率（A1 类 run 才有；None 表示该 run 无检索）
+        "schema_recall": (
+            lambda xs: round(sum(xs) / len(xs), 4) if xs else None
+        )([r["schema_recall"] for r in answerable if r.get("schema_recall") is not None]),
+        # 平均输入 token（成本的直接解释变量；A0 的 extra 里不放，向后兼容为 None）
+        "avg_in_tokens": (
+            lambda xs: round(sum(xs) / len(xs)) if xs else None
+        )([r["in_tokens"] for r in records if r.get("in_tokens")]),
         "n_order_sensitive": len(ord_records),
         "error_rate": rate(errs, len(answerable)),  # 可回答题的错误率。
         "behavior_ok": rate(sum(1 for r in special if r.get("behavior_ok")), len(special)),  # 特殊行为题的正确率。
@@ -162,3 +170,21 @@ def type_breakdown(records: list[dict]) -> list[tuple[str, int, int, float | Non
         ex = sum(1 for r in ans if r.get("ex"))
         rows.append((t, len(rs), len(ans), round(ex / len(ans), 3) if ans else None))
     return rows
+
+
+# 失败二分函数——这是 A1 对比分析的核心
+def failure_split(records: list[dict]) -> dict:
+    """把 ex=False 的题分成两类：检索没召回 gold 表（retrieval）vs 召回了但生成错（generation）。
+    只有带 retrieved_tables 的 run 才有意义。A0 的全错都该算 generation。"""
+    retr = gen = 0
+    for r in records:
+        if r.get("ex") is not False or not r.get("gold_tables"):
+            continue
+        rt = r.get("retrieved_tables")
+        if rt is None:
+            gen += 1
+        elif set(r["gold_tables"]) <= set(rt):
+            gen += 1
+        else:
+            retr += 1
+    return {"retrieval_errors": retr, "generation_errors": gen}

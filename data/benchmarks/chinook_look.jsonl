@@ -507,7 +507,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "HAVING + 单位换算（60 分钟 = 3600000 毫秒）；【v1.1 修复 P0-2】题面明确要求排序，避免「题面未要求排序却按有序判分」的假阴性；实测 102 张专辑",
   "gold_tables": [
     "Album",
@@ -550,7 +550,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "join + 聚合；【v1.1】加次级排序键：第 4/5 名并列 45.62（Kovács / O'Reilly）；分两列而非拼接（规避格式陷阱 B）；实测榜首 Helena Holý 49.62",
   "gold_tables": [
     "Customer",
@@ -679,7 +679,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "单表过滤 + 排序；【v1.1】补次级排序键 FirstName；实测 13 人",
   "gold_tables": [
     "Customer"
@@ -790,7 +790,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "时间范围过滤；【v1.1】Johnson 与 Mitchell 同日（2003-10-17）入职，补次级排序键；实测 3 人",
   "gold_tables": [
     "Employee"
@@ -847,7 +847,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "单表过滤 + Top-N；单位在题面写死（毫秒）规避格式陷阱；【v1.1】补次级排序键 Name；实测共 260 首，榜首 'Occupation / Precipice'(5286953ms)",
   "gold_tables": [
     "Track"
@@ -1004,7 +1004,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "【v1.1 升级·P0-1】分组聚合 + 标量子查询算占比（分母须用全表计数，模型易写错）；实测 USA 13 人 22.0%；24 国",
   "gold_tables": [
     "Customer"
@@ -1051,7 +1051,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "【v1.1 升级·P0-1】窗口函数 RANK（8B 模型易写错语法）；第 4 名并列 45.62（两次）；实测 Helena 49.62 第 1",
   "gold_tables": [
     "Customer",
@@ -1171,7 +1171,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "【v1.1 升级·P0-1】两表 join + RANK 窗口函数；第 4 名并列（Metallica/U2 各 10 张）；实测 Iron Maiden 21 张第 1",
   "gold_tables": [
     "Album",
@@ -1249,7 +1249,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "【v1.1 升级·P0-1】LEFT JOIN Invoice 后须 COUNT(DISTINCT) 防重复计数（模型易错）；实测 Jane Peacock 21 人 833.04，与全库总额 2328.60 对账一致",
   "gold_tables": [
     "Customer",
@@ -1293,7 +1293,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "【v1.1 升级·P0-1】四表 join + 占比标量子查询；实测 Iron Maiden 140 首 6.3%",
   "gold_tables": [
     "Album",
@@ -1378,7 +1378,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "【v1.1 升级·P0-1】相关子查询（按国家平均）+ 派生表；实测 13 人，Helena 49.62 居首",
   "gold_tables": [
     "Customer",
@@ -2149,7 +2149,7 @@
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
-  "order_sensitive": false,
+  "order_sensitive": true,
   "notes": "HAVING + 派生表子查询；【v1.1】补次级排序键 al.Title；平均每专辑 10.1 首，实测 183 张高于均值",
   "gold_tables": [
     "Album",

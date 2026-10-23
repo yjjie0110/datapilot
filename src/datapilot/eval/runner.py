@@ -82,6 +82,17 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
     if ex is False and rows is not None and gold is not None:
         mismatch = explain_mismatch(rows, gold)
 
+    # 召回率：仅 answer 题、且 pipeline 上报了检索结果时有意义
+    extra = dict(out.get("extra") or {})
+    if (
+        q["expected_behavior"] == "answer"
+        and out.get("retrieved_tables") is not None
+        and q.get("gold_tables")
+    ):
+        extra["schema_recall"] = int(
+            set(q["gold_tables"]) <= set(out["retrieved_tables"])
+        )
+
     # 记录字段设计比较完整：题目元信息、行为、状态、SQL、行数、EX、差异、错误、延迟、LLM 调用、成本
     return {
         "id": q["id"],
@@ -98,6 +109,9 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
         "order_sensitive": bool(q.get("order_sensitive")),
         "ex": ex,
         "ex_ordered": ex_ord,
+        "gold_tables": q.get("gold_tables"),
+        "retrieved_tables": out.get("retrieved_tables"),
+        **extra,
         "mismatch": mismatch,
         "error": err or out.get("error"),
         "latency_ms": round((time.perf_counter() - t0) * 1000),

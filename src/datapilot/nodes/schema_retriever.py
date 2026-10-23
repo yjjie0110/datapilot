@@ -66,7 +66,7 @@ class SchemaRetriever:
                 if fk["table"] in self.neighbors:
                     self.neighbors[fk["table"]].add(u["table"])  # 再加反向边，构成无向图（双向邻接）
 
-    def retrieve(self, question: str, top_k: int = 4, expand_fk: bool = True) -> list[str]:
+    def retrieve(self, question: str, top_k: int = 6, expand_fk: bool = True) -> list[str]:
         """
             返回表名列表，排序确定（分数降序，平分按表名字典序）。
             args: 问题、BM25 初筛数量、是否做外键扩展
