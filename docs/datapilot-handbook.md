@@ -442,16 +442,23 @@ datapilot/
 >
 > **A1 的诚实叙事：** 小库上检索的价值是"EX 不降 + 输入 token 下降 + schema 变大后仍可扩展"。召回率 < 100% 导致的掉点是数据不是耻辱；为不掉点把 top_k 调到接近全表数才是作弊。
 
-### Day 3 — LangGraph 主图 + 修复环
+### Day 3 — LangGraph 主图 + 修复环（含"检索扩大"逃生通道）
+
+> 详细操作手册见 `docs/day3-handbook.md`（含完整节点代码与路由表）。
+
+> **设计修正（Day 2 数据驱动）：** 若 Day 2 的失败二分和本项目实测一致——失败全是检索错、SQL 执行错误率为 0——则原版"只修执行报错"的修复环会没有输入。修复环必须增加第三条路：diagnoser 判定"schema 疑似不全"（报表/列不存在、可疑空结果）时**一次性退回全量 schema 重新生成**（escalate，每题限 1 次，计入 attempts）。A2 的叙事因此升级为"执行反馈驱动的检索-生成协同修复"。
 
 交付物：
+- [ ] eval 配置化：`eval/configs/*.yaml`，meta 记录完整配置，fingerprint 覆盖配置内容（防不同配置静默续跑混数据）
 - [ ] `graph.py`：完整节点与条件边（含 `attempts >= 3` 的终止分支）
-- [ ] `nodes/diagnoser.py`：把 DB 报错归类（表名错 / 列名错 / 语法错 / 类型错 / 聚合误用 / 超时）
-- [ ] `nodes/repairer.py`：带 `sql_history` 的修复提示
-- [ ] `SqliteSaver` checkpointer 接入（`thread_id = trace_id`）
-- [ ] 跑 A2，得到**修复增益**
+- [ ] `nodes/diagnoser.py`：确定性规则优先（报错子串分类），LLM 只兜底"空结果是否可疑"
+- [ ] `nodes/repairer.py`：带 `sql_history`（只带最近 2 次）的修复提示
+- [ ] 危险 SQL 路由到 give_up 且 `behavior="refuse"`（对抗题红利，跑完验证）
+- [ ] `SqliteSaver` checkpointer 接入（`thread_id = config名:题id`，防跨 run 污染）
+- [ ] 指标：首轮正确率 `ex_first`、修复增益、`n_escalated`
+- [ ] 跑 A2，得到**修复增益**及其归因（escalate 修检索错 vs repair 修语法错，各 n=?）
 
-验收：能演示"第一次报错 → 自动修复 → 成功"的 trace。
+验收：能演示一道"首轮失败 → escalate/repair → 成功"的完整 `sql_history` trace。
 
 ### Day 4 — 可靠性：校验、HITL、防幻觉
 

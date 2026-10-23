@@ -22,16 +22,6 @@ from datapilot.eval.verify_gold import verify_gold
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 
-def get_pipeline(name: str):
-    if name == "a0":
-        from datapilot.pipelines.a0 import a0_answer
-        return a0_answer
-    if name == "a1":
-        from datapilot.pipelines.a1 import a1_answer
-        return a1_answer
-    raise typer.BadParameter(f"未知 pipeline：{name}")
-
-
 @app.command("verify-gold")
 def cmd_verify_gold(dataset: str = ""):
     r = verify_gold(dataset or settings.dataset, settings.db_dir, settings.max_rows)
@@ -49,9 +39,7 @@ def cmd_eval(
     run_id: str = "",
     dataset: str = "",
 ):
-    fn = get_pipeline(config)
     out = run_eval(
-        fn,
         config_name=config,
         dataset_path=dataset or None,
         limit=limit or None,

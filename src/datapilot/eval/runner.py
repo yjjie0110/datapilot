@@ -16,6 +16,8 @@ from typing import Callable
 from datapilot.config import settings
 from datapilot.eval.metrics import aggregate, explain_mismatch, results_equal
 
+from datapilot.eval.eval_config import config_fingerprint, load_eval_config
+
 # 多线程写文件的互斥锁
 _write_lock = Lock()
 
@@ -37,6 +39,22 @@ def prompt_fingerprint() -> str:
         return hashlib.sha256(a0.SYSTEM.encode("utf-8")).hexdigest()[:12]
     except Exception:
         return "na"
+
+
+def get_pipeline(cfg: dict) -> Callable[[dict], dict]:
+    """按 cfg["pipeline"] 分发，并把 cfg 里的参数绑定进 pipeline 调用。"""
+    name = cfg["pipeline"]
+    if name == "a0":
+        from datapilot.pipelines.a0 import a0_answer
+        return lambda q: a0_answer(q)
+    if name == "a1":
+        from datapilot.pipelines.a1 import a1_answer
+        top_k = cfg.get("top_k", 6)
+        return lambda q: a1_answer(q, top_k=top_k)
+    if name == "a2":
+        from datapilot.pipelines.a2 import graph_answer
+        return lambda q: graph_answer(q, cfg=cfg)
+    raise ValueError(f"未知 pipeline：{name}")
 
 
 # 单题评分（核心）负责判一道题
@@ -75,7 +93,10 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
                 else None
             )
         else:
-            ex = ex_ord = False
+            ex = False
+            # 失败兜底也要尊重 order_sensitive 标记，否则 aggregate 会把所有
+            # answerable 题都算进排序题分母（全 error 的 run 里 n_order_sensitive 会虚高）
+            ex_ord = False if q.get("order_sensitive") else None
 
     # 只在"判错了且两边都有数据"时生成人话版差异
     mismatch = None
@@ -124,13 +145,17 @@ def dataset_fingerprint(path: str | Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:12]
 
 # 续跑添加数据集指纹
-def run_fingerprint(dataset_path: str | Path) -> str:
-    return f"{dataset_fingerprint(dataset_path)}-{prompt_fingerprint()}"
+def run_fingerprint(dataset_path: str | Path, cfg: dict) -> str:
+    """三段式指纹：数据集 + prompt + 评测配置。任何一段变了都不许续跑。"""
+    return (
+        f"{dataset_fingerprint(dataset_path)}"
+        f"-{prompt_fingerprint()}"
+        f"-{config_fingerprint(cfg)}"
+    )
 
 
 # 负责把几百道题高效、可靠、可恢复地跑完
 def run_eval(
-    pipeline_fn: Callable[[dict], dict],
     *,
     config_name: str,
     dataset_path: str | Path | None = None,
@@ -138,20 +163,23 @@ def run_eval(
     limit: int | None = None,
     concurrency: int | None = None,
 ) -> dict:
+    cfg = load_eval_config(config_name)      # 配置即实验身份
+    pipeline_fn = get_pipeline(cfg)          # 按 cfg 分发并绑定
     dataset_path = Path(dataset_path or settings.dataset)  # 数据集路径jsonl
     run_id = run_id or f"{config_name}_{time.strftime('%Y%m%d_%H%M%S')}"  # 输出结果id
     run_dir = Path(settings.run_dir) / run_id  # 输出结果文件夹
     run_dir.mkdir(parents=True, exist_ok=True)
     res_path = run_dir / "results.jsonl"
 
-    # ---- 续跑：已经算过的题直接跳过 ----
-    fp = run_fingerprint(dataset_path)
+    fp = run_fingerprint(dataset_path, cfg)
     meta_path = run_dir / "meta.json"
+
+    # ---- 续跑：已经算过的题直接跳过 ----
     if res_path.exists() and meta_path.exists():
         old = json.loads(meta_path.read_text(encoding="utf-8"))
         if old.get("fingerprint") and old["fingerprint"] != fp:
             raise RuntimeError(
-                f"数据集或 prompt 已变化（{old['fingerprint']} -> {fp}）。"
+                f"数据集、prompt 或评测配置已变化（{old['fingerprint']} -> {fp}）。"
                 f"请换一个 run_id，或删除 {run_dir}。"
             )
 
@@ -172,6 +200,7 @@ def run_eval(
         "config": config_name,
         "prompt_fingerprint": prompt_fingerprint(),
         "fingerprint": fp,
+        "eval_config": cfg,  # 完整配置落盘（含 top_k / repair_max_attempts）
         "model": settings.model,
         "base_url": settings.base_url,
         "temperature": settings.temperature,
