@@ -68,6 +68,9 @@ cd D:\download\AI\ChatGPT\Work\agent-project-1\datapilot
 uv init --package
 uv add openai pydantic pydantic-settings sqlglot pyyaml typer rich tenacity
 uv add --dev pytest ruff
+
+# 添加镜像源
+--default-index https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 不用 uv 的等价做法：

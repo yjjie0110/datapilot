@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.14.1",
     "pydantic-settings>=2.15.0",
     "pyyaml>=6.0.3",
+    "rank-bm25>=0.2.2",
     "rich>=15.0.0",
     "sqlglot>=30.22.0",
     "tenacity>=9.2.1",
@@ -21,6 +22,10 @@ datapilot = "datapilot:main"
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
 
 [dependency-groups]
 dev = [

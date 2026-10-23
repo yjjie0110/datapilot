@@ -285,6 +285,8 @@ curl.exe -L -o data\dbs\sakila.db "https://github.com/bradleygrant/sakila-sqlite
 
 # 代理
 curl.exe -L --proxy http://127.0.0.1:10808 -o data\dbs\sakila.db "https://github.com/bradleygrant/sakila-sqlite3/raw/main/sakila.db"
+# 上面的路径不对
+curl.exe -L --proxy http://127.0.0.1:10808 -o data\dbs\sakila.db "https://raw.githubusercontent.com/bradleygrant/sakila-sqlite3/main/sakila_master.db"
 ```
 
 验证后**先把 schema 打出来看**：
@@ -407,7 +409,7 @@ if __name__ == "__main__":
         print(q, "->", r.retrieve(q))
 ```
 
-装依赖：`uv add rank-bm25`
+装依赖：`uv add rank-bm25`。添加镜像源`--default-index https://pypi.tuna.tsinghua.edu.cn/simple`
 
 ### 5.3 `tests/test_retriever.py`
 
