@@ -304,6 +304,7 @@ class AgentState(TypedDict, total=False):
     truncated: bool
 
     # 诊断
+    error_code: str | None
     diagnosis: Optional[dict]  # {category, action, reason}
 
     # 输出
@@ -314,6 +315,7 @@ class AgentState(TypedDict, total=False):
     cost_cny: float
     in_tokens: int
     llm_calls: int
+
 ```
 
 ---
@@ -367,6 +369,7 @@ def node_retrieve(state: AgentState) -> dict:
         tables = [u["table"] for u in _retriever(state["db_id"]).units]
         schema = full_schema_text(db)
     else:
+        # 只获取和当前question 相关的前top_k 个tables
         tables = _retriever(state["db_id"]).retrieve(state["question"], top_k=state["top_k"])
         schema = schema_text_for(db, tables)
     return {"retrieved_tables": tables, "schema_text": schema}
@@ -374,9 +377,13 @@ def node_retrieve(state: AgentState) -> dict:
 
 def node_generate(state: AgentState, client: LLMClient) -> dict:
     user = f"# 数据库 Schema\n{state['schema_text']}\n\n# 用户问题\n{state['question']}"
+
+    # 调用LLM return {text:..., model:..., in_token:..., out_token:..., cost_cny:..., latency_ms:...}
+    # 其中 text{"sql": "...", "tables_used": ["表名"], "assumptions": ["你对题意做出的任何假设"]}
     r = client.chat_json(SYSTEM, user)
     out = {"llm_calls": 1, "cost_cny": r.cost_cny, "in_tokens": r.in_tokens}
     try:
+        # 将模型LLM 输出的格式严格成JSON 格式
         payload = extract_json(r.text)
         out["sql"] = payload.get("sql", "")
         out["error"] = None
@@ -387,23 +394,27 @@ def node_generate(state: AgentState, client: LLMClient) -> dict:
 
 
 def node_validate(state: AgentState) -> dict:
+    # AST 白名单守卫
     ok, reason = is_safe_select(state["sql"] or "")
     return {"exec_ok": False, "error": None if ok else f"unsafe_sql: {reason}"}
 
 
 def node_execute(state: AgentState) -> dict:
+    # 执行sql，用 sql_runner.run_sql：AST 守卫、强制 LIMIT、只读、超时、错误分类；
+    # return {"ok":..., "error":..., "error_code":...,"columns":..., "rows":...,"truncated":..., "elapsed_ms":...,}
     res = run_sql(
         settings.db_dir / f"{state['db_id']}.db", state["sql"],
         max_rows=settings.max_rows, timeout_s=settings.sql_timeout_s,
     )
     out = {
-        "exec_ok": res["ok"], "error": res["error"],
+        "exec_ok": res["ok"], "error": res["error"], "error_code": res["error_code"],
         "columns": res["columns"], "rows": res["rows"] if res["ok"] else None,
         "truncated": res["truncated"],
     }
     if res["ok"] and state.get("first_rows") is None and not state["sql_history"]:
         out["first_rows"] = res["rows"]  # 首轮成功执行的快照，给 ex_first 用
     return out
+
 ```
 
 > 注意 LangGraph 的节点约定：返回 dict 是**部分更新**，累加字段（llm_calls、cost_cny）需要在 graph 里用 Reducer 或在 adapter 里汇总。最省事的做法：节点把每次调用追加进 `sql_history`/自定义列表字段，adapter 最后求和。别在节点里做 `state["cost_cny"] + x` 的读改写——并行分支下会丢更新（今天没有并行分支，但养成习惯）。
@@ -428,19 +439,18 @@ SQL：{sql}
 只输出 JSON：{{"suspicious": true, "reason": "一句话"}}"""
 
 
-def classify_error(err: str) -> str:
-    e = err.lower()
-    if "no such table" in e or "no such column" in e:
+def classify_error(error_code: str | None, err: str) -> str:
+    code = (error_code or "").upper()
+    if code in ("NO_SUCH_TABLE", "NO_SUCH_COLUMN"):
         return "schema_incomplete"
-    if "syntax" in e:
+    if code == "SYNTAX_ERROR":
         return "syntax"
-    if "unsafe_sql" in e:
-        return "unsafe"
-    if "parse_error" in e:
-        return "parse"
-    if "timeout" in e:
+    if code == "GUARD":
+        return "parse" if "parse_error" in err.lower() else "unsafe"
+    if code == "TIMEOUT":
         return "timeout"
     return "other"
+
 
 
 def node_diagnose(state: AgentState, client: LLMClient) -> dict:
@@ -448,6 +458,8 @@ def node_diagnose(state: AgentState, client: LLMClient) -> dict:
 
     # 空结果分支：LLM 判断可疑性
     if not err and state.get("exec_ok") and not state.get("rows"):
+        # 调用LLM.chat_json return {text:..., model:..., in_token:..., out_token:..., cost_cny:..., latency_ms:...}
+        # 其中 text: {"suspicious": true, "reason": "一句话"}
         r = client.chat_json(
             "你是严格的评审。",
             EMPTY_JUDGE.format(question=state["question"], sql=state["sql"]),
@@ -458,8 +470,9 @@ def node_diagnose(state: AgentState, client: LLMClient) -> dict:
             reason = verdict.get("reason", "")
         except Exception:
             suspicious, reason = True, "LLM 判断解析失败，按可疑处理"
-        if not suspicious:
+        if not suspicious:  # 若空结果，用LLM 判断不可疑
             return {"diagnosis": {"category": "empty_ok", "action": "accept", "reason": reason}}
+        # 若空结果，LLM 判断可疑
         category = "empty_suspicious"
     else:
         category = classify_error(err or "")
@@ -487,10 +500,9 @@ def node_diagnose(state: AgentState, client: LLMClient) -> dict:
 
 ```python
 # 修复节点：带错误反馈与历史，避免重复同样的错误。
-
-from datapilot.llm.client import LLMClient
-from datapilot.pipelines.a0 import extract_json
-from datapilot.state import AgentState
+from src.datapilot.llm.client import LLMClient
+from src.datapilot.pipelines.a0 import extract_json
+from src.datapilot.state import AgentState
 
 REPAIR_SYSTEM = "你是 SQLite 专家。基于执行反馈修复 SQL。只能使用给定 schema 中的表和列。输出严格 JSON。"
 
@@ -514,12 +526,20 @@ REPAIR_USER = """# 数据库 Schema
 
 def node_repair(state: AgentState, client: LLMClient) -> dict:
     # 只带最近 2 次历史——全塞进去 prompt 膨胀且模型会迷失
-    history = "\n".join(
-        f"- {h['sql']}  → {h.get('error') or f\"{h.get('n_rows', 0)} 行\"}"
-        for h in state["sql_history"][-2:]
-    ) or "（无）"
+    parts = []
+    # 列表为空或只有 1 条也不会报错（返回 [] 或 1 条），比 [-2]、[-1] 安全
+    for h in state["sql_history"][-2:]:
+        # 有 error 就显示错误，否则显示行数
+        detail = h.get("error") or f"{h.get('n_rows', 0)} 行"
+        parts.append(f"- {h['sql']}  → {detail}")
+    history = "\n".join(parts) or "（无）"
+
     d = state.get("diagnosis") or {}
+    # 直接报错优先（执行期错误最具体）；否则用诊断器的结构化结论（分类 + 原因）
     feedback = state.get("error") or f"诊断：{d.get('category')} - {d.get('reason')}"
+
+    # 调用LLM.chat_json return {text:..., model:..., in_token:..., out_token:..., cost_cny:..., latency_ms:...}
+    # 其中 text: {"sql": "...", "tables_used": [...], "assumptions": [...]}
     r = client.chat_json(REPAIR_SYSTEM, REPAIR_USER.format(
         schema=state["schema_text"], question=state["question"],
         sql=state["sql"], feedback=feedback, history=history,
@@ -530,13 +550,19 @@ def node_repair(state: AgentState, client: LLMClient) -> dict:
         out["error"] = None
     except Exception as e:
         out["error"] = f"parse_error: {e}"
+    # return out{"llm_calls", "cost_cny", "in_tokens", "sql", "error"}
     return out
+
 ```
 
 ### 4.4 give_up 与 compose
 
-```python
+```
 # src/datapilot/nodes/terminal_nodes.py
+```
+
+```python
+# give_up 与 compose
 
 from datapilot.state import AgentState
 
