@@ -274,7 +274,8 @@ START → retrieve → generate → validate → execute → compose → END
 ### 2.4 状态定义 `src/datapilot/state.py`
 
 ```python
-from typing import Any, Optional, TypedDict
+import operator
+from typing import Annotated, Any, Optional, TypedDict
 
 
 class AgentState(TypedDict, total=False):
@@ -312,9 +313,12 @@ class AgentState(TypedDict, total=False):
     give_up_reason: Optional[str]
 
     # 成本
-    cost_cny: float
-    in_tokens: int
-    llm_calls: int
+    # 【改】三个累加字段必须挂 operator.add Reducer——TypedDict 默认是覆盖语义，
+    # 不修的话 repair/escalate 链路上每个节点返回的 llm_calls=1 会互相覆盖，
+    # 最终只剩最后一个节点的计数（实测：sa-015 实际 3+ 次调用，记录只有 1）
+    cost_cny: Annotated[float, operator.add]
+    in_tokens: Annotated[int, operator.add]
+    llm_calls: Annotated[int, operator.add]
 
 ```
 
@@ -439,15 +443,32 @@ SQL：{sql}
 只输出 JSON：{{"suspicious": true, "reason": "一句话"}}"""
 
 
-def classify_error(error_code: str | None, err: str) -> str:
+# 【实测修正版】err 在前保持单参数兼容；error_code 优先、文本兜底。
+# 文本兜底必须保留：generate/validate 节点直写 error 时没有 error_code。
+def classify_error(err: str, error_code: str | None = None) -> str:
+    # 优先读 sql_runner 给的结构化 error_code（执行期错误走这里）
     code = (error_code or "").upper()
     if code in ("NO_SUCH_TABLE", "NO_SUCH_COLUMN"):
         return "schema_incomplete"
     if code == "SYNTAX_ERROR":
         return "syntax"
     if code == "GUARD":
+        # sql_runner 内部守卫：解析失败是 "guard: parse_error: ..."，其余是危险 SQL
         return "parse" if "parse_error" in err.lower() else "unsafe"
     if code == "TIMEOUT":
+        return "timeout"
+
+    # 文本兜底（error_code 缺失：node_generate / node_validate 直写 error 的场景）
+    e = err.lower()
+    if "no such table" in e or "no such column" in e:
+        return "schema_incomplete"
+    if "parse_error" in e:
+        return "parse"
+    if "unsafe_sql" in e or "guard" in e:
+        return "unsafe"
+    if "syntax" in e:
+        return "syntax"
+    if "interrupted" in e or "timeout" in e:
         return "timeout"
     return "other"
 
@@ -475,7 +496,12 @@ def node_diagnose(state: AgentState, client: LLMClient) -> dict:
         # 若空结果，LLM 判断可疑
         category = "empty_suspicious"
     else:
-        category = classify_error(err or "")
+        # 把 execute 节点写入 state 的 error_code 传给分类器
+        category = classify_error(err or "", state.get("error_code"))
+
+    # diagnose 是所有失败路径的漏斗，在这里计入 attempts——
+    # 若只在 repair 里加，parse 失败（不进 execute/repair 也可能空转）撞不到上限
+    attempts = state["attempts"] + 1
 
     # 动作决策：unsafe 直接拒；schema 问题优先扩大检索（仅 1 次）；其余修复
     if category == "unsafe":
@@ -485,24 +511,33 @@ def node_diagnose(state: AgentState, client: LLMClient) -> dict:
     else:
         action, reason = "repair", "带错误反馈修复"
 
-    if state["attempts"] >= state["max_attempts"]:
+    if attempts >= state["max_attempts"]:
         action, reason = "give_up", f"attempts 达到上限（{state['max_attempts']}）"
 
-    return {
+    # escalate 就地置位：图中没有独立 escalate 节点，不置位 retrieve 永远走 top_k 分支，
+    # 且 escalated 恒 False 会让 diagnose 反复选择 escalate，空转到 attempts 耗尽
+    out = {
         "diagnosis": {"category": category, "action": action, "reason": reason},
+        "attempts": attempts,
         "llm_calls": 1 if err is None and category != "unsafe" else 0,
     }
+    if action == "escalate":
+        out["escalated"] = True
+    return out
 ```
 
-> ⚠️ 先核对你 Day 1 写的 `classify_error`（sql_runner 里）输出的错误文本，确保 `"no such table"` 等子串匹配得上。对不上就改这里的子串，**不要改 sql_runner**——它的输出已经被 A0/A1 的历史结果引用。
+> ✅ 已核对（Day 3 实施时实测）：sql_runner 的错误文本有三种形态——SQLite 原生报错（`no such table: ...`）、守卫拦截（`guard: ...`，解析失败是 `guard: parse_error: ...`）、超时中断（`interrupted`）。注意 generate/validate 节点直写的 error（`parse_error: ...` / `unsafe_sql: ...`）**没有 error_code**，所以文本兜底路径必须保留。generate / validate / repair 直写 error 时必须同时把 `error_code` 置 None，防止上一轮 execute 留下的陈旧值误导分类。
 
 ### 4.3 repairer `src/datapilot/nodes/repairer.py`
 
 ```python
 # 修复节点：带错误反馈与历史，避免重复同样的错误。
-from src.datapilot.llm.client import LLMClient
-from src.datapilot.pipelines.a0 import extract_json
-from src.datapilot.state import AgentState
+# 【实测修正】统一 datapilot.* 导入。用 src.datapilot.* 会让同一模块被加载两次
+# （site-packages 的 datapilot 与 CWD 下的 src.datapilot 是两个独立模块对象），
+# settings / _client / _retrievers 各产生两份实例。
+from datapilot.llm.client import LLMClient
+from datapilot.pipelines.a0 import extract_json
+from datapilot.state import AgentState
 
 REPAIR_SYSTEM = "你是 SQLite 专家。基于执行反馈修复 SQL。只能使用给定 schema 中的表和列。输出严格 JSON。"
 
@@ -639,7 +674,11 @@ def build_graph(checkpoint_db: str):
     g.add_edge("give_up", "compose")
     g.add_edge("compose", END)
 
-    cp = SqliteSaver.from_conn_string(checkpoint_db)
+    # 【实测修正】当前版本 from_conn_string() 返回上下文管理器而非 saver 实例，
+    # 手动建连接直接构造；check_same_thread=False 必须（LangGraph 可能跨线程执行节点）。
+    # compile 的 kwarg 是 checkpointer=，不是 checkpoint_db=。
+    conn = sqlite3.connect(checkpoint_db, check_same_thread=False)
+    cp = SqliteSaver(conn)
     return g.compile(checkpointer=cp)
 
 
@@ -660,18 +699,11 @@ def _route_after_diagnose(s: AgentState) -> str:
     return "give_up"
 ```
 
-** escalate 边的一个细节**：diagnose → retrieve 重进检索时，要在进入前把 `escalated` 置 True 且 `attempts += 1`。两种做法：单独加一个 `escalate` 节点（推荐，显式、可查 trace），或在 diagnose 里就地更新。用显式节点：
+**escalate 与 attempts 的最终实现（实测修正）**：不在独立 escalate 节点 / repair 里计数，而是**在 diagnose 里就地完成**——diagnose 是所有失败路径的漏斗：
+- `attempts`：diagnose 每次被进入就 +1 并写回（parse 失败路径不经过 execute/repair，在别处计数会空转撞递归上限）；
+- `escalated`：diagnose 决定 action=escalate 时同一次返回里置 True（不置位则 retrieve 永远走 top_k 分支，escalate 空转）。
 
-```python
-def node_escalate(state: AgentState) -> dict:
-    return {"escalated": True, "attempts": state["attempts"] + 1}
-```
-
-对应把边改成 `{"escalate": "escalate", ...}` + `g.add_edge("escalate", "retrieve")`。
-
-**attempts 在哪里加**：repair 节点返回里 `"attempts": state["attempts"] + 1`。每次循环必须有人加，没人加就是无限循环。
-
-**sql_history 在哪里追加**：execute 节点末尾追加 `{"sql", "error", "n_rows", "attempt"}`——它是修复上下文的数据源。
+**sql_history 在哪里追加**：execute 节点末尾追加 `{"sql", "error", "n_rows", "attempt"}`——它是修复上下文的数据源。TypedDict 无 reducer，用 `state.get("sql_history", []) + [entry]` 手动追加。
 
 ---
 
@@ -684,7 +716,9 @@ def node_escalate(state: AgentState) -> dict:
 # 这是 Day 1 接口设计的兑现时刻：runner 一行不改。
 
 import json
+import threading  # 【改】per-thread checkpoint 文件
 import time
+import uuid  # 【改】thread_id 需要唯一后缀
 
 from datapilot.config import settings
 from datapilot.graph import build_graph
@@ -694,7 +728,11 @@ def graph_answer(q: dict, client=None, cfg: dict | None = None) -> dict:
     cfg = cfg or {}
     t0 = time.perf_counter()
     trace_id = f"a2-{q['id']}"
-    app = build_graph("checkpoints.db")
+    # 【改】checkpoint 文件按线程隔离：runner 用 4 线程并发跑题，所有线程共写
+    # 同一个 checkpoints.db 会撞 SQLite 单写者限制（实测出现 database is locked /
+    # attempt to write a readonly database，v2 两组 run 共 4 题因此报废）。
+    # 每线程一个文件：同线程内题目串行无竞争，跨线程物理隔离。
+    app = build_graph(f"checkpoints-{threading.get_ident()}.db")
     final = app.invoke(
         {
             "question": q["question"], "db_id": q["db_id"], "trace_id": trace_id,
@@ -703,7 +741,9 @@ def graph_answer(q: dict, client=None, cfg: dict | None = None) -> dict:
             "attempts": 0, "escalated": False, "sql_history": [],
             "behavior": "answer", "cost_cny": 0.0, "in_tokens": 0, "llm_calls": 0,
         },
-        config={"configurable": {"thread_id": f"{cfg.get('name', 'a2')}:{q['id']}"}},
+        # 【改】thread_id 加 uuid：否则同 config+题号重跑会复用旧 checkpoint，
+        # first_rows/escalated 等不在输入里的字段从上一轮泄漏进新一轮（状态污染）
+        config={"configurable": {"thread_id": f"{cfg.get('name', 'a2')}:{q['id']}:{uuid.uuid4().hex[:8]}"}},
     )
     return {
         "status": "ok" if final.get("exec_ok") else "sql_error",
@@ -723,8 +763,10 @@ def graph_answer(q: dict, client=None, cfg: dict | None = None) -> dict:
             "escalated": final.get("escalated"),
             "first_rows": final.get("first_rows"),   # runner 算完 ex_first 后会丢掉
             "diagnosis": final.get("diagnosis"),
+            "error_code": final.get("error_code"),   # 【改】暴露给失败归因统计
         },
     }
+
 ```
 
 > 上面的累加字段（cost_cny 等）依赖你在图里正确处理 Reducer。LangGraph 里给 `AgentState` 的累加字段标注 `Annotated[float, operator.add]` 是最干净的做法——查一下你装的 langgraph 版本的 Reducer 写法，照做。
@@ -737,10 +779,13 @@ def graph_answer(q: dict, client=None, cfg: dict | None = None) -> dict:
     # 首轮正确率：pipeline 上报了 first_rows 才算（A2 类 run）
     if q["expected_behavior"] == "answer" and "first_rows" in extra:
         fa = extra.pop("first_rows")  # 行数据不进 results.jsonl，太占地方
+        # 【实测修正】参数名是 ordered= 不是 order_sensitive=；不要传
+        # settings.round_ndigits/casefold——Settings 里没有这两个字段，也不该加：
+        # ex 和 ex_first 必须共用 results_equal 的同一套默认归一化参数
+        # （ndigits=2, casefold=False），否则 repair_gain 的减数与被减数口径不一
         extra["ex_first"] = (
-            results_equal(fa, gold, order_sensitive=bool(q.get("order_sensitive")),
-                          ndigits=settings.round_ndigits, casefold=settings.casefold)
-            if fa is not None else False
+            results_equal(fa, gold, ordered=bool(q.get("order_sensitive")))
+            if fa is not None and gold is not None else False
         )
 ```
 
@@ -831,7 +876,7 @@ python -m src.datapilot.cli eval --config a2 --dataset data/benchmarks/sakila_v0
 - [ ] top_k 配置化 + meta 记录（指纹覆盖配置内容）
 - [ ] day02 日报填满
 - [ ] 图 + 修复环 + 检索扩大逃生通道
-- [ ] checkpointer 接入（thread_id = config名:题id）
+- [ ] checkpointer 接入（thread_id = config名:题id:uuid——必须带唯一后缀防 checkpoint 污染）
 - [ ] A2 × chinook/sakila 两组 run
 - [ ] 首轮正确率 / 修复增益指标
 

@@ -18,3 +18,4 @@ experiments
 .pytest_cache/
 .ruff_cache/
 *.log
+checkpoints*.db*

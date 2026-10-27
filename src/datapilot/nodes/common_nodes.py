@@ -36,22 +36,28 @@ def node_generate(state: AgentState, client: LLMClient) -> dict:
     # 调用LLM return {text:..., model:..., in_token:..., out_token:..., cost_cny:..., latency_ms:...}
     # 其中 text{"sql": "...", "tables_used": ["表名"], "assumptions": ["你对题意做出的任何假设"]}
     r = client.chat_json(SYSTEM, user)
+    # 【改】generate/validate 直写 error 时必须同时清掉 error_code——
+    # 否则上一轮 execute 留下的旧 error_code 会让 diagnoser 误判（陈旧值污染）
     out = {"llm_calls": 1, "cost_cny": r.cost_cny, "in_tokens": r.in_tokens}
     try:
         # 将模型LLM 输出的格式严格成JSON 格式
         payload = extract_json(r.text)
         out["sql"] = payload.get("sql", "")
         out["error"] = None
+        out["error_code"] = None
     except Exception as e:
         out["sql"] = None
         out["error"] = f"parse_error: {e}"
+        out["error_code"] = None
     return out
 
 
 def node_validate(state: AgentState) -> dict:
     # AST 白名单守卫
     ok, reason = is_safe_select(state["sql"] or "")
-    return {"exec_ok": False, "error": None if ok else f"unsafe_sql: {reason}"}
+    # 【改】同上：本节点产出的 error 无对应 error_code，显式清空
+    return {"exec_ok": False, "error": None if ok else f"unsafe_sql: {reason}",
+            "error_code": None}
 
 
 def node_execute(state: AgentState) -> dict:
@@ -66,6 +72,15 @@ def node_execute(state: AgentState) -> dict:
         "columns": res["columns"], "rows": res["rows"] if res["ok"] else None,
         "truncated": res["truncated"],
     }
+    # 【改】追加 sql_history——之前全图没有任何节点写它，repairer 的"不要重复
+    # 同样的错误"永远是空列表。TypedDict 无 reducer，手动拼接实现追加。
+    entry = {
+        "sql": state["sql"],
+        "error": res["error"],
+        "n_rows": len(res["rows"]) if res["ok"] else 0,
+        "attempt": state.get("attempts", 0),
+    }
+    out["sql_history"] = (state.get("sql_history") or []) + [entry]
     if res["ok"] and state.get("first_rows") is None and not state["sql_history"]:
         out["first_rows"] = res["rows"]  # 首轮成功执行的快照，给 ex_first 用
     return out

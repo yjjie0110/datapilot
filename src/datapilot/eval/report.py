@@ -38,6 +38,9 @@ def write_report(run_dir: str | Path, records: list[dict], summary: dict, config
         f"| 单题成本 | ¥{summary['cost_per_q_cny']:.6f} |",
         f"| 总成本 | ¥{summary['total_cost_cny']:.4f} |",
         f"| 平均 LLM 调用次数 | {summary['avg_llm_calls']} |",
+        f"| 首轮正确率 | {summary['ex_first']} |",
+        f"| 修复增益 | {summary['repair_gain']} |",
+        f"| 出发检索扩大次数 | {summary['n_escalated']} |"
         "",
         "## 分题型",
         "",

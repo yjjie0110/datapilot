@@ -1,4 +1,5 @@
-from typing import Any, Optional, TypedDict
+import operator
+from typing import Annotated, Any, Optional, TypedDict
 
 
 class AgentState(TypedDict, total=False):
@@ -36,6 +37,9 @@ class AgentState(TypedDict, total=False):
     give_up_reason: Optional[str]
 
     # 成本
-    cost_cny: float
-    in_tokens: int
-    llm_calls: int
+    # 【改】三个累加字段必须挂 operator.add Reducer——TypedDict 默认是覆盖语义，
+    # 不修的话 repair/escalate 链路上每个节点返回的 llm_calls=1 会互相覆盖，
+    # 最终只剩最后一个节点的计数（实测：sa-015 实际 3+ 次调用，记录只有 1）
+    cost_cny: Annotated[float, operator.add]
+    in_tokens: Annotated[int, operator.add]
+    llm_calls: Annotated[int, operator.add]

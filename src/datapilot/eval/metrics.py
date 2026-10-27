@@ -118,6 +118,8 @@ def aggregate(records: list[dict]) -> dict:
     errs = sum(1 for r in answerable if r.get("status") != "ok")
     lat = sorted(r.get("latency_ms", 0) for r in records) or [0]
 
+    ex_firsts = [r["ex_first"] for r in answerable if "ex_first" in r]
+
     return {
         "n_total": len(records),  # 总题数。
         "n_answerable": len(answerable),  # 可回答题数。
@@ -143,6 +145,13 @@ def aggregate(records: list[dict]) -> dict:
         "avg_llm_calls": round(
             sum(r.get("llm_calls", 0) for r in records) / max(len(records), 1), 2
         ),  # 平均 LLM 调用次数，同样空输入问题。
+        "ex_first": round(sum(ex_firsts) / len(ex_firsts), 4) if ex_firsts else None,  # 首轮正确率
+        # 修复增益 = 最终 EX − 首轮正确率。本项目最想证明的数字。
+        "repair_gain": (
+            round(ex / len(answerable) - sum(ex_firsts) / len(ex_firsts), 4)
+            if ex_firsts and answerable else None
+        ),
+        "n_escalated": sum(1 for r in records if r.get("escalated")),  # 触发检索扩大次数
     }
 
 

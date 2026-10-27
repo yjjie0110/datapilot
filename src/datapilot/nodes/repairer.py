@@ -1,7 +1,8 @@
 # 修复节点：带错误反馈与历史，避免重复同样的错误。
-from src.datapilot.llm.client import LLMClient
-from src.datapilot.pipelines.a0 import extract_json
-from src.datapilot.state import AgentState
+# 【改】统一 datapilot.* 导入（同 graph.py，避免模块双重加载）
+from datapilot.llm.client import LLMClient
+from datapilot.pipelines.a0 import extract_json
+from datapilot.state import AgentState
 
 REPAIR_SYSTEM = "你是 SQLite 专家。基于执行反馈修复 SQL。只能使用给定 schema 中的表和列。输出严格 JSON。"
 
@@ -47,7 +48,9 @@ def node_repair(state: AgentState, client: LLMClient) -> dict:
     try:
         out["sql"] = extract_json(r.text).get("sql", "")
         out["error"] = None
+        out["error_code"] = None  # 【改】清掉陈旧 error_code（同 common_nodes）
     except Exception as e:
         out["error"] = f"parse_error: {e}"
+        out["error_code"] = None
     # return out{"llm_calls", "cost_cny", "in_tokens", "sql", "error"}
     return out

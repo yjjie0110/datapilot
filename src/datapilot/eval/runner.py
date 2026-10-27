@@ -105,6 +105,19 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
 
     # 召回率：仅 answer 题、且 pipeline 上报了检索结果时有意义
     extra = dict(out.get("extra") or {})
+
+    # 首轮正确率：pipeline 上报了 first_rows 才算（A2 类 run）
+    if q["expected_behavior"] == "answer" and "first_rows" in extra:
+        fa = extra.pop("first_rows")  # 行数据不进 results.jsonl，太占地方
+        # 【改】参数名是 ordered= 不是 order_sensitive=；ndigits/casefold 用
+        # results_equal 默认值（ndigits=2, casefold=False），与上方 ex 的判定口径
+        # 保持一致——Settings 里没有 round_ndigits/casefold 字段，也不该有：
+        # ex 和 ex_first 必须共用同一套归一化参数，否则 repair_gain 不可比
+        extra["ex_first"] = (
+            results_equal(fa, gold, ordered=bool(q.get("order_sensitive")))
+            if fa is not None and gold is not None else False
+        )
+
     if (
         q["expected_behavior"] == "answer"
         and out.get("retrieved_tables") is not None

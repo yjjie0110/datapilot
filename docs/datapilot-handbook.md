@@ -463,7 +463,7 @@ datapilot/
 ### Day 4 — 可靠性：校验、HITL、防幻觉
 
 交付物：
-- [ ] `verifier.py`：第二路径独立生成 + 结果比对（注意比较时要做数值容差）
+- [ ] `verifier.py`：非空错结果拦截。**设计修正（Day 3 数据驱动，见 day4-handbook 2.2）**：弃用"第二路径独立生成 + 结果比对"——Day 3 的失败全是系统性错误（词形/中英映射/语义误读），双路径会犯同样的错且白付 2× 生成成本。改为"确定性检查 + LLM judge（SQL↔问题↔结果对齐）"，verify 只打回不改 SQL，每题限触发 1 次 repair。
 - [ ] `clarifier.py`：用 LangGraph `interrupt()` 实现人工澄清，CLI 里 resume
 - [ ] `answer_composer.py`：结论只能引用执行结果，带 SQL 与结果表
 - [ ] 歧义题的澄清正确率统计
