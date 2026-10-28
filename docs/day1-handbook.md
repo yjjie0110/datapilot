@@ -591,6 +591,30 @@ def sample_rows(db_path: str | Path, table: str, n: int = 3) -> list[list]:
   "order_sensitive": false,
   "notes": "单表过滤"
 }
+
+
+{
+  "id": "sa-001",
+  "db_id": "sakila",
+  "question": "评级为 NC-17 且时长超过 120 分钟的电影中，时长最长的 10 部是哪些？返回电影标题和时长（分钟），按时长从高到低排列，时长相同按标题升序。",
+  "question_type": "simple",
+  "difficulty": 2,
+  "gold_sql": "SELECT title, length FROM film WHERE rating = 'NC-17' AND length > 120 ORDER BY length DESC, title LIMIT 10;",
+  "gold_result": [
+    [
+      "CRYSTAL BREAKING",
+      180
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "单表双条件过滤 + Top-N；第 1-4 名并列 184 分钟、第 9-10 名并列 180 分钟，次级排序键 title 保证确定性；实测榜首 CRYSTAL BREAKING(184)",
+  "gold_tables": [
+    "film"
+  ]
+}
+
 ```
 
 字段约定：
