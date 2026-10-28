@@ -1,4 +1,4 @@
-from datapilot.eval.gold_tables import extract_tables
+from src.datapilot.eval.gold_tables import extract_tables
 
 
 def test_simple_join():

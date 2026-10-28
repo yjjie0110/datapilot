@@ -1,5 +1,5 @@
-from datapilot.eval.eval_config import load_eval_config
-from datapilot.nodes.diagnoser import classify_error
+from src.datapilot.eval.eval_config import load_eval_config
+from src.datapilot.nodes.diagnoser import classify_error
 
 
 def test_classify_error_deterministic():
@@ -12,7 +12,7 @@ def test_classify_error_deterministic():
 
 def test_unsafe_gives_refuse():
     # 危险 SQL → give_up → behavior=refuse，不需要 LLM
-    from datapilot.nodes.terminal_nodes import node_give_up
+    from src.datapilot.nodes.terminal_nodes import node_give_up
     out = node_give_up({"diagnosis": {"category": "unsafe", "reason": "r"}, "rows": [1]})
     assert out["behavior"] == "refuse" and out["rows"] is None
 
@@ -22,7 +22,7 @@ def test_graph_smoke_real_llm():
     import json
     q = {"id": "ch-001", "db_id": "chinook",
          "question": "列出所有巴西客户的姓名和邮箱。"}
-    from datapilot.pipelines.a2 import graph_answer
+    from src.datapilot.pipelines.a2 import graph_answer
     out = graph_answer(q, cfg=load_eval_config("a2"))
     for k in ("status", "sql", "rows", "behavior", "retrieved_tables"):
         assert k in out

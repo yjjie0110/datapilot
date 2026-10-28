@@ -14,10 +14,10 @@ from pathlib import Path
 import typer
 from rich import print as rprint
 
-from datapilot.config import settings, PROJECT_ROOT
-from datapilot.eval.report import write_report
-from datapilot.eval.runner import run_eval
-from datapilot.eval.verify_gold import verify_gold
+from src.datapilot.config import settings, PROJECT_ROOT
+from src.datapilot.eval.report import write_report
+from src.datapilot.eval.runner import run_eval
+from src.datapilot.eval.verify_gold import verify_gold
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
@@ -55,14 +55,41 @@ def cmd_eval(
 
 
 @app.command("ask")
-def cmd_ask(question: str, db: str = "chinook"):
-    from datapilot.pipelines.a0 import a0_answer
-    out = a0_answer({"id": "adhoc", "db_id": db, "question": question,
-                     "expected_behavior": "answer"})
-    rprint(f"SQL: {out.get('sql')}")
-    rows = out.get("rows")
-    rprint(f"行数: {0 if rows is None else len(rows)}")
-    rprint((rows or [])[:5] if rows is not None else out.get("error"))
+def cmd_ask(question: str = "", db: str = "chinook",
+            thread: str = "cli-default", resume: str = ""):
+    """单题即席提问，支持 HITL 澄清：
+    ask "哪个歌单最受欢迎？" --thread demo1
+    ask --thread demo1 --resume "按购买次数"
+    """
+    from langgraph.types import Command
+    from src.datapilot.graph import build_graph
+
+    # ★ 固定 checkpoint 文件：评测那套 per-thread 文件（checkpoints-{线程id}.db）
+    # 跨进程 resume 时找不到旧 checkpoint——演示链路必须用固定文件名
+    app = build_graph("checkpoints-cli.db", with_reliability=True)
+    cfg = {"configurable": {"thread_id": thread}}
+    if resume:
+        # langgraph 1.x：Command(resume=...) 把用户回答送回挂起的 interrupt 处
+        final = app.invoke(Command(resume=resume), config=cfg)
+    else:
+        final = app.invoke(
+            {"question": question, "db_id": db, "trace_id": f"ask-{thread}",
+             "top_k": 6, "max_attempts": 3, "difficulty": 3,
+             "hitl": True,   # ★ 演示链路：clarify 走 interrupt 挂起等人答
+             "attempts": 0, "escalated": False, "sql_history": [],
+             "verify_retried": False,
+             "behavior": "answer", "cost_cny": 0.0, "in_tokens": 0, "llm_calls": 0},
+            config=cfg)
+
+    # langgraph 1.x：被 interrupt 挂起时，结果 dict 里带 __interrupt__ 键
+    interrupts = final.get("__interrupt__")
+    if interrupts:
+        rprint(f"[yellow]Agent 反问：{interrupts[0].value['clarifying_question']}[/yellow]")
+        rprint(f'继续：ask --thread {thread} --resume "你的回答"')
+        return
+    rprint(final.get("answer_text"))
+    rprint(f"SQL: {final.get('sql')}")
+    rprint(f"(llm_calls={final.get('llm_calls')}, cost=¥{final.get('cost_cny', 0):.4f})")
 
 
 if __name__ == "__main__":

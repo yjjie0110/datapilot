@@ -89,7 +89,7 @@ def schema_text_for(db_path: str | Path, table_names: list[str]) -> str:
     # ......
 
 if __name__ == "__main__":
-    from datapilot.config import settings
+    from src.datapilot.config import settings
     print(settings.db_dir)
     # print(full_schema_text(settings.db_dir / "chinook.db"))
     print(full_schema_text(settings.db_dir / "sakila.db"))

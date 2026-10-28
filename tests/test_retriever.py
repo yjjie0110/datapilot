@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from datapilot.config import settings
-from datapilot.nodes.schema_retriever import SchemaRetriever, tokenize
+from src.datapilot.config import settings
+from src.datapilot.nodes.schema_retriever import SchemaRetriever, tokenize
 
 DB = Path(settings.db_dir) / "chinook.db"
 

@@ -7,10 +7,10 @@ from __future__ import annotations
 import json
 import re
 
-from datapilot.config import settings
-from datapilot.llm.client import LLMClient
-from datapilot.tools.schema import full_schema_text
-from datapilot.tools.sql_runner import run_sql
+from src.datapilot.config import settings
+from src.datapilot.llm.client import LLMClient
+from src.datapilot.tools.schema import full_schema_text
+from src.datapilot.tools.sql_runner import run_sql
 
 SYSTEM = """你是一名资深的 SQLite 数据分析师，任务是把用户的问题翻译成一条可执行的 SQLite 查询。
 

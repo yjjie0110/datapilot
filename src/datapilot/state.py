@@ -43,3 +43,11 @@ class AgentState(TypedDict, total=False):
     cost_cny: Annotated[float, operator.add]
     in_tokens: Annotated[int, operator.add]
     llm_calls: Annotated[int, operator.add]
+
+    # —— Day 4 新增 ——
+    difficulty: int            # 题目难度，verifier 的 LLM judge 按它控制成本
+    hitl: bool                 # True 时 clarify 走 interrupt 等人答（仅 CLI 演示链路）
+    gate: Optional[dict]       # node_gate{action, reason, clarifying_question}
+    verify: Optional[dict]     # node_verifier{verdict, reason, flags}
+    verify_retried: bool       # verify 打回后已修复过一次（防 verify↔repair 震荡）
+    answer_text: Optional[str] # compose 产出的人话结论

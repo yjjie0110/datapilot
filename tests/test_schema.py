@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from datapilot.config import settings
-from datapilot.tools.schema import full_schema_text, schema_text_for, table_units
+from src.datapilot.config import settings
+from src.datapilot.tools.schema import full_schema_text, schema_text_for, table_units
 
 DB = Path(settings.db_dir) / "chinook.db"
 

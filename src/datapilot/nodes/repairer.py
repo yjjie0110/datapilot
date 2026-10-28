@@ -1,8 +1,8 @@
 # 修复节点：带错误反馈与历史，避免重复同样的错误。
-# 【改】统一 datapilot.* 导入（同 graph.py，避免模块双重加载）
-from datapilot.llm.client import LLMClient
-from datapilot.pipelines.a0 import extract_json
-from datapilot.state import AgentState
+# 【改】统一 src.datapilot.* 导入（同 graph.py，避免模块双重加载）
+from src.datapilot.llm.client import LLMClient
+from src.datapilot.pipelines.a0 import extract_json
+from src.datapilot.state import AgentState
 
 REPAIR_SYSTEM = "你是 SQLite 专家。基于执行反馈修复 SQL。只能使用给定 schema 中的表和列。输出严格 JSON。"
 

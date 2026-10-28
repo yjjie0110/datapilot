@@ -1,7 +1,7 @@
 # 用来验证 datapilot/eval/metrics.py 里 results_equal 和 explain_mismatch 两个函数的判分语义是否符合设计约定。
 # 使用pytest -q 测试
 
-from datapilot.eval.metrics import explain_mismatch, results_equal
+from src.datapilot.eval.metrics import explain_mismatch, results_equal
 
 # ① 最基本：完全相同
 def test_identical():

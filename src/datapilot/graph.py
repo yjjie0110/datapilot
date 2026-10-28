@@ -6,12 +6,16 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import StateGraph, START, END
 
 # settings / _client / _retrievers 各产生两份实例）
-from datapilot.llm.client import LLMClient
-from datapilot.nodes.common_nodes import node_retrieve, node_generate, node_validate, node_execute
-from datapilot.nodes.diagnoser import node_diagnose
-from datapilot.nodes.repairer import node_repair
-from datapilot.nodes.terminal_nodes import node_compose, node_give_up
-from datapilot.state import AgentState
+from src.datapilot.llm.client import LLMClient
+from src.datapilot.nodes.common_nodes import node_retrieve, node_generate, node_validate, node_execute
+from src.datapilot.nodes.diagnoser import node_diagnose
+from src.datapilot.nodes.repairer import node_repair
+from src.datapilot.nodes.terminal_nodes import node_compose, node_give_up
+from src.datapilot.state import AgentState
+
+# A3
+from src.datapilot.nodes.gate import node_gate, node_clarify_wait
+from src.datapilot.nodes.verifier import node_verify
 
 _client: LLMClient | None = None
 
@@ -23,7 +27,7 @@ def _get_client() -> LLMClient:
     return _client
 
 
-def build_graph(checkpoint_db: str):
+def build_graph(checkpoint_db: str, with_reliability: bool = False):
     g = StateGraph(AgentState)
     g.add_node("retrieve", node_retrieve)
     g.add_node("generate", lambda s: node_generate(s, _get_client()))
@@ -34,16 +38,41 @@ def build_graph(checkpoint_db: str):
     g.add_node("give_up", node_give_up)
     g.add_node("compose", node_compose)
 
-    g.add_edge(START, "retrieve")
-    g.add_edge("retrieve", "generate")
+    if with_reliability:
+        # —— A3：gate + verify 接入 ——
+        g.add_node("gate", lambda s: node_gate(s, _get_client()))
+        g.add_node("clarify_wait", node_clarify_wait)
+        g.add_node("verify", lambda s: node_verify(s, _get_client()))
+
+        g.add_edge(START, "retrieve")
+        g.add_edge("retrieve", "gate")
+        g.add_conditional_edges("gate", _route_after_gate,
+            {"generate": "generate", "clarify_wait": "clarify_wait", "compose": "compose"})
+        g.add_edge("clarify_wait", "retrieve")  # 用户澄清后带新问题重走检索
+    else:
+        # —— A2 原拓扑，不动 ——
+        g.add_edge(START, "retrieve")
+        g.add_edge("retrieve", "generate")
+
+    # —— A2 原拓扑，不动 ——
     g.add_conditional_edges("generate",
         lambda s: "validate" if s.get("sql") else "diagnose",
         {"validate": "validate", "diagnose": "diagnose"})
     g.add_conditional_edges("validate",
         lambda s: "execute" if not s.get("error") else "diagnose",
         {"execute": "execute", "diagnose": "diagnose"})
-    g.add_conditional_edges("execute", _route_after_execute,
-        {"compose": "compose", "diagnose": "diagnose"})
+
+    if with_reliability:
+        g.add_conditional_edges("execute", _route_after_execute_reliability,
+            {"verify": "verify", "diagnose": "diagnose"})
+        g.add_conditional_edges("verify", _route_after_verify,
+            {"compose": "compose", "diagnose": "diagnose"})
+    else:
+        # 【改】execute 的条件边必须放进 else——原来 if 块内外各注册了一次，
+        # 同一源节点重复注册 Branch 会在 compile 时抛 ValueError，A2 也跑不了
+        g.add_conditional_edges("execute", _route_after_execute,
+            {"compose": "compose", "diagnose": "diagnose"})
+
     g.add_conditional_edges("diagnose", _route_after_diagnose,
         {"repair": "repair", "escalate": "retrieve", "accept": "compose", "give_up": "give_up"})
     g.add_edge("repair", "validate")
@@ -62,6 +91,28 @@ def build_graph(checkpoint_db: str):
     return g.compile(checkpointer=cp)
 
 
+def _route_after_gate(s: AgentState) -> str:
+    action = (s.get("gate") or {}).get("action", "answer")
+    if action == "clarify":
+        return "clarify_wait" if s.get("hitl") else "compose"
+    if action == "refuse":
+        return "compose"
+    return "generate"
+
+
+def _route_after_execute_reliability(s: AgentState) -> str:
+    if s["exec_ok"] and s.get("rows"):
+        return "verify"   # 成功且有行 → 校验
+    return "diagnose"     # 报错或空结果 → 诊断（A2 原路径）
+
+
+def _route_after_verify(s: AgentState) -> str:
+    verdict = (s.get("verify") or {}).get("verdict", "pass")
+    if verdict == "wrong" and not s.get("verify_retried"):
+        return "diagnose"  # 打回修复，仅限一次
+    return "compose"       # pass；或已打回过一次 → 认栽接受现状，防震荡
+
+
 def _route_after_execute(s: AgentState) -> str:
     if s["exec_ok"] and s.get("rows"):
         return "compose"
@@ -77,5 +128,3 @@ def _route_after_diagnose(s: AgentState) -> str:
     if action == "accept":
         return "accept"
     return "give_up"
-
-

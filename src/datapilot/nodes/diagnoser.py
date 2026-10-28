@@ -3,8 +3,8 @@
 
 import json
 
-from datapilot.llm.client import LLMClient
-from datapilot.state import AgentState
+from src.datapilot.llm.client import LLMClient
+from src.datapilot.state import AgentState
 
 EMPTY_JUDGE = """问题：{question}
 SQL：{sql}
@@ -47,8 +47,11 @@ def classify_error(err: str, error_code: str | None = None) -> str:
 def node_diagnose(state: AgentState, client: LLMClient) -> dict:
     err = state.get("error")
 
+    # ⓪ category 判定：verify 打回的情况优先判断（此时 err=None、rows 非空，空结果分支和 classify_error 都不会命中，不加这支就会落进 "other"）
+    if (state.get("verify") or {}).get("verdict") == "wrong":
+        category = "wrong_result"
     # 空结果分支：LLM 判断可疑性
-    if not err and state.get("exec_ok") and not state.get("rows"):
+    elif not err and state.get("exec_ok") and not state.get("rows"):
         # 调用LLM.chat_json return {text:..., model:..., in_token:..., out_token:..., cost_cny:..., latency_ms:...}
         # 其中 text: {"suspicious": true, "reason": "一句话"}
         r = client.chat_json(
@@ -74,7 +77,15 @@ def node_diagnose(state: AgentState, client: LLMClient) -> dict:
     attempts = state["attempts"] + 1
 
     # 动作决策：unsafe 直接拒；schema 问题优先扩大检索（仅 1 次）；其余修复
-    if category == "unsafe":
+    # 【改】wrong_result 必须能 escalate——这是 Day 4 实验复盘得出的结构性结论。
+    # verify 把失败形态从"报错/空结果"改写成了"带毒的非空结果"，若此时只走 repair，
+    # 就是拿同一份（很可能不完备的）schema 反复重写同一句错话。实测：sakila sa-015
+    # 在 A2（无 verify）靠 escalate 修好，到 A3（有 verify）反而修不动，根因在此。
+    if category == "wrong_result" and not state.get("escalated"):
+        action, reason = "escalate", "结果与题干不符，疑似 schema 不全导致语义误读，先扩大检索"
+    elif category == "wrong_result":
+        action, reason = "repair", "扩大检索后结果仍不符，带 verifier 反馈修复"
+    elif category == "unsafe":
         action, reason = "give_up", "危险 SQL 被守卫拦截，正确行为是拒答"
     elif category in ("schema_incomplete", "empty_suspicious") and not state.get("escalated"):
         action, reason = "escalate", "schema 疑似不全，退回全量 schema 重新生成"
@@ -92,6 +103,8 @@ def node_diagnose(state: AgentState, client: LLMClient) -> dict:
         "attempts": attempts,
         "llm_calls": 1 if err is None and category != "unsafe" else 0,
     }
+    if category == "wrong_result":
+        out["verify_retried"] = True   # 打回只许一次，防 verify↔repair 震荡
     if action == "escalate":
-        out["escalated"] = True
+        out["escalated"] = True  # 只运行扩展一次
     return out

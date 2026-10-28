@@ -115,7 +115,10 @@ def aggregate(records: list[dict]) -> dict:
     ex = sum(1 for r in answerable if r.get("ex"))
     ord_records = [r for r in answerable if r.get("ex_ordered") is not None]
     ex_ord = sum(1 for r in ord_records if r.get("ex_ordered"))
-    errs = sum(1 for r in answerable if r.get("status") != "ok")
+    # 【改】error_rate 的口径是"SQL/执行错误率"，只认真正的执行失败。
+    # gate 拦截出的 clarified/refused 已从 sql_error 里拆出来，不该再混进来——
+    # 否则一道 gate 误判会被谎报成 SQL 错误（Day 4 sakila sa-003 就制造过这个假象）。
+    errs = sum(1 for r in answerable if r.get("status") in ("sql_error", "error"))
     lat = sorted(r.get("latency_ms", 0) for r in records) or [0]
 
     ex_firsts = [r["ex_first"] for r in answerable if "ex_first" in r]
@@ -152,6 +155,23 @@ def aggregate(records: list[dict]) -> dict:
             if ex_firsts and answerable else None
         ),
         "n_escalated": sum(1 for r in records if r.get("escalated")),  # 触发检索扩大次数
+
+        # —— Day 4：gate 与 verifier 的功过账 ——
+        # gate 误杀：可答题被拦成 clarify/refuse（每道都是 EX 的直接损失）
+        "gate_false_kill": sum(
+            1 for r in answerable if r.get("behavior") not in (None, "answer")),
+        # verify 触发数（answer 题中 verify 留痕的）
+        "n_verified": sum(1 for r in answerable if r.get("verify")),
+        # verify 的功：判 wrong 且最终从错修对（escalate 修复的题没有 verify 留痕，天然排除）
+        "verify_fixed": sum(
+            1 for r in answerable
+            if (r.get("verify") or {}).get("verdict") == "wrong"
+            and r.get("ex_first") is False and r.get("ex") is True),
+        # verify 的过：首轮对、终轮错。A3 链路里首轮成功后唯一能改变结果的
+        # 路径就是 verify 打回 → repair 改错，所以这就是误杀数
+        "verify_false_alarm": sum(
+            1 for r in answerable
+            if r.get("ex_first") is True and r.get("ex") is False),
     }
 
 

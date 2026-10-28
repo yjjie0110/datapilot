@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from datapilot.tools.sql_runner import is_safe_select, run_sql
+from src.datapilot.tools.sql_runner import is_safe_select, run_sql
 
 DB = Path(__file__).resolve().parents[1] / "data/dbs/chinook.db"
 

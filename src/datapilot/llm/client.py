@@ -20,7 +20,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from datapilot.config import settings
+from src.datapilot.config import settings
 
 # 可重试异常白名单，分别是：429，触发限流；网络抖动、DNS、TLS 握手失败；请求超时；
 RETRYABLE = (RateLimitError, APIConnectionError, APITimeoutError)

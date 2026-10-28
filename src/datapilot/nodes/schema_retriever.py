@@ -10,8 +10,8 @@ from pathlib import Path
 
 from rank_bm25 import BM25Okapi
 
-from datapilot.tools.schema import table_units
-from datapilot.tools.sql_runner import sample_rows
+from src.datapilot.tools.schema import table_units
+from src.datapilot.tools.sql_runner import sample_rows
 
 
 def tokenize(text: str) -> list[str]:
@@ -92,7 +92,7 @@ class SchemaRetriever:
 
 
 if __name__ == "__main__":
-    from datapilot.config import settings
+    from src.datapilot.config import settings
     r = SchemaRetriever(settings.db_dir / "chinook.db")
     for q in ["每个音乐流派的曲目数量", "客户 Nancy 的邮箱", "哪些影片被租借次数最多"]:
         print(q, "->", r.retrieve(q))

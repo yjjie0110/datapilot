@@ -3,12 +3,12 @@
 
 from __future__ import annotations
 
-from datapilot.config import settings
-from datapilot.llm.client import LLMClient
-from datapilot.nodes.schema_retriever import SchemaRetriever
-from datapilot.pipelines.a0 import SYSTEM, extract_json  # 直接复用，禁止复制粘贴后改字
-from datapilot.tools.schema import schema_text_for
-from datapilot.tools.sql_runner import run_sql
+from src.datapilot.config import settings
+from src.datapilot.llm.client import LLMClient
+from src.datapilot.nodes.schema_retriever import SchemaRetriever
+from src.datapilot.pipelines.a0 import SYSTEM, extract_json  # 直接复用，禁止复制粘贴后改字
+from src.datapilot.tools.schema import schema_text_for
+from src.datapilot.tools.sql_runner import run_sql
 
 _retrievers: dict[str, SchemaRetriever] = {}
 

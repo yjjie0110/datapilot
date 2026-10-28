@@ -6,8 +6,8 @@ import threading  # 【改】per-thread checkpoint 文件
 import time
 import uuid  # 【改】thread_id 需要唯一后缀
 
-from datapilot.config import settings
-from datapilot.graph import build_graph
+from src.datapilot.config import settings
+from src.datapilot.graph import build_graph
 
 
 def graph_answer(q: dict, client=None, cfg: dict | None = None) -> dict:

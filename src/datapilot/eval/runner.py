@@ -13,10 +13,10 @@ from pathlib import Path
 from threading import Lock
 from typing import Callable
 
-from datapilot.config import settings
-from datapilot.eval.metrics import aggregate, explain_mismatch, results_equal
+from src.datapilot.config import settings
+from src.datapilot.eval.metrics import aggregate, explain_mismatch, results_equal
 
-from datapilot.eval.eval_config import config_fingerprint, load_eval_config
+from src.datapilot.eval.eval_config import config_fingerprint, load_eval_config
 
 # 多线程写文件的互斥锁
 _write_lock = Lock()
@@ -35,8 +35,13 @@ def prompt_fingerprint() -> str:
     try:
         # 取 pipeline 的 system prompt，算 SHA256 前 12 位，写进 meta.json
         # 目的：两次 run 的 prompt 不同 → 结果不可直接对比。有了指纹，报表工具可以拒绝"拿不同 prompt 的 run 做对比"；
-        from datapilot.pipelines import a0
-        return hashlib.sha256(a0.SYSTEM.encode("utf-8")).hexdigest()[:12]
+        from src.datapilot.pipelines import a0
+        # a3 新增：① 改完所有旧 run_id 不可续跑（指纹不匹配会 raise）——A3 本来就用新 run_id，无影响；
+        # ② a0–a2 旧报告页眉里的指纹值与新算法产出对不上，属于算法升级而非数据污染。
+        from src.datapilot.nodes import diagnoser, gate, repairer, verifier
+        parts = [a0.SYSTEM, repairer.REPAIR_SYSTEM, diagnoser.EMPTY_JUDGE,
+                 gate.GATE_SYSTEM, verifier.VERIFY_SYSTEM]
+        return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:12]
     except Exception:
         return "na"
 
@@ -45,15 +50,18 @@ def get_pipeline(cfg: dict) -> Callable[[dict], dict]:
     """按 cfg["pipeline"] 分发，并把 cfg 里的参数绑定进 pipeline 调用。"""
     name = cfg["pipeline"]
     if name == "a0":
-        from datapilot.pipelines.a0 import a0_answer
+        from src.datapilot.pipelines.a0 import a0_answer
         return lambda q: a0_answer(q)
     if name == "a1":
-        from datapilot.pipelines.a1 import a1_answer
+        from src.datapilot.pipelines.a1 import a1_answer
         top_k = cfg.get("top_k", 6)
         return lambda q: a1_answer(q, top_k=top_k)
     if name == "a2":
-        from datapilot.pipelines.a2 import graph_answer
+        from src.datapilot.pipelines.a2 import graph_answer
         return lambda q: graph_answer(q, cfg=cfg)
+    if name == "a3":
+        from src.datapilot.pipelines.a3 import graph_answer_a3
+        return lambda q: graph_answer_a3(q, cfg=cfg)
     raise ValueError(f"未知 pipeline：{name}")
 
 

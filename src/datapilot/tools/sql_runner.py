@@ -10,7 +10,7 @@ from pathlib import Path
 import sqlglot
 from sqlglot import exp
 
-from datapilot.tools.schema import connect_ro
+from src.datapilot.tools.schema import connect_ro
 
 
 # 从 sqlglot.exp 里按名字取类，取不到或不是类就跳过（安全地拿可选节点类型）

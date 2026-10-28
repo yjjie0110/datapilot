@@ -7,7 +7,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from datapilot.eval.metrics import type_breakdown
+from src.datapilot.eval.metrics import type_breakdown
+
+
+# a3 中的 行为混淆矩阵
+def behavior_matrix(records: list[dict]) -> str:
+    """行=期望行为，列=实际行为。"""
+    from collections import Counter
+    cnt = Counter((r["expected_behavior"], r.get("behavior") or "?") for r in records)
+    behaviors = sorted({b for _, b in cnt})
+    lines = ["| 期望 \\ 实际 | " + " | ".join(behaviors) + " |",
+             "|" + " --- |" * (len(behaviors) + 1)]
+    for exp in ("answer", "clarify", "refuse"):
+        row = [str(cnt.get((exp, b), 0)) for b in behaviors]
+        lines.append(f"| {exp} | " + " | ".join(row) + " |")
+    return "\n".join(lines)
 
 
 def write_report(run_dir: str | Path, records: list[dict], summary: dict, config: str) -> Path:
@@ -38,10 +52,23 @@ def write_report(run_dir: str | Path, records: list[dict], summary: dict, config
         f"| 单题成本 | ¥{summary['cost_per_q_cny']:.6f} |",
         f"| 总成本 | ¥{summary['total_cost_cny']:.4f} |",
         f"| 平均 LLM 调用次数 | {summary['avg_llm_calls']} |",
-        f"| 首轮正确率 | {summary['ex_first']} |",
-        f"| 修复增益 | {summary['repair_gain']} |",
-        f"| 出发检索扩大次数 | {summary['n_escalated']} |"
+        f"| 首轮正确率 | {format(summary['ex_first'], '.2%') if summary['ex_first'] is not None else 'N/A'} |",          # 【改】原样输出裸浮点，改百分比
+        f"| 修复增益 | {format(summary['repair_gain'], '.2%') if summary['repair_gain'] is not None else 'N/A'} |",          # 【改】同上
+        f"| 触发检索扩大次数 | {summary['n_escalated']} |",      # 【改】错字"出发"→"触发"；原行尾缺逗号，靠隐式拼接幸存
+    ]
+    # 【改】Day 4 的功过账：只有带 gate/verify 留痕的 run（A3+）才展示，A0-A2 报告保持干净
+    if any(r.get("gate") for r in records):
+        lines.append(f"| gate 误杀 answer 题数 | {summary['gate_false_kill']} |")
+    if summary.get("n_verified"):
+        lines += [
+            f"| verify 触发数 | {summary['n_verified']} |",
+            f"| verify 修复成功数 | {summary['verify_fixed']} |",
+            f"| verify 误杀数 | {summary['verify_false_alarm']} |",
+        ]
+    lines += [
         "",
+        "## 行为混淆矩阵",
+        behavior_matrix(records),
         "## 分题型",
         "",
         "| 题型 | 题目数 | 可判定题 | EX |",
