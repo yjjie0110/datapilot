@@ -40,6 +40,14 @@ clarify 的代价是直接丢掉一道可答题，比 answer 后答错的代价�
 > 这条已知债在 Day 5 收尾前必须还掉，否则改了 gate prompt 还用同一个 run_id 续跑，
 > 会静默混入两次不同配置的结果。
 
+
+
+**改进：**
+
+> 规则落实进 `GATE_USER` prompt： **“题面已给出排序方式、取数范围、聚合口径的，即便存在多种合理解释，也判 answer”** 。
+
+
+
 ## 1. 第三库：自建电商 schema（2.5 小时，今天最重的活）
 
 ### 1.1 建库脚本（完整可运行）
@@ -594,6 +602,13 @@ foreach ($cfg in 'a0','a1','a2','a3','a4') {
   python -m src.datapilot.cli eval --config $cfg `
     --dataset data/benchmarks/chinook_v0.jsonl `
     --run-id "chinook_$cfg"
+}
+
+
+foreach ($cfg in 'a0','a1','a2','a3','a4') {
+  python -m src.datapilot.cli eval --config $cfg --dataset data/benchmarks/ecommerce_v0.jsonl --run-id "ecommerce_$cfg"
+  python -m src.datapilot.cli eval --config $cfg --dataset data/benchmarks/sakila_v0.jsonl    --run-id "sakila_$cfg"
+  python -m src.datapilot.cli eval --config $cfg --dataset data/benchmarks/chinook_v0.jsonl   --run-id "chinook_$cfg"
 }
 ```
 

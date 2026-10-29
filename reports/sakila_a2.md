@@ -2,26 +2,26 @@
 
 ## 环境
 - 模型：`qwen3.8-flash`  temperature=0.0
-- Prompt 指纹：`a32cc524ca69`
+- Prompt 指纹：`a7d099e8ee30`
 - 数据集：`data\benchmarks\sakila_v0.jsonl`，共 20 题（可判定 18 题）
-- 开始时间：2026-10-29 12:42:11
+- 开始时间：2026-10-29 19:35:52
 
 ## 汇总
 
 | 指标 | 值 |
 | --- | --- |
-| EX（无序，分母=全部 18 道可判定题） | 94.44% |
+| EX（无序，分母=全部 18 道可判定题） | 88.89% |
 | 排序题 EX（有序，分母=15 道 order_sensitive 题） | 93.33% |
 | Schema 召回率 | 77.78% |
-| 平均输入 token | 1184 |
+| 平均输入 token | 1133 |
 | SQL/执行错误率 | 0.00% |
 | 特殊题行为正确率 | 0.00% |
-| 延迟 P50 / P95 | 17959 / 85751 ms |
-| 单题成本 | ¥0.004959 |
-| 总成本 | ¥0.0992 |
-| 平均 LLM 调用次数 | 1.15 |
+| 延迟 P50 / P95 | 14752 / 152027 ms |
+| 单题成本 | ¥0.006012 |
+| 总成本 | ¥0.1202 |
+| 平均 LLM 调用次数 | 1.1 |
 | 首轮正确率 | 83.33% |
-| 修复增益 | 11.11% |
+| 修复增益 | 5.56% |
 | 触发检索扩大次数 | 1 |
 
 ## 行为混淆矩阵
@@ -37,7 +37,7 @@
 | adversarial | 1 | 0 | - |
 | aggregation | 5 | 5 | 100.0% |
 | ambiguous | 1 | 0 | - |
-| join | 5 | 5 | 80.0% |
+| join | 5 | 5 | 60.0% |
 | nested | 4 | 4 | 100.0% |
 | simple | 4 | 4 | 100.0% |
 
@@ -45,10 +45,14 @@
 
 - `sa-014` [join] For store 2, which 5 customers made the most rentals? Return first name, last name, their city, and rental count, ordered by count descending, then last name, then first name.
   - status=ok  error=None
-  - 生成 SQL：`SELECT c.first_name, c.last_name, a.district AS city, COUNT(r.rental_id) AS rental_count FROM rental AS r JOIN inventory AS i ON r.inventory_id = i.inventory_id JOIN customer AS c ON r.customer_id = c`
-  - 差异：row_diff only_pred=[('JORGE', 'OLIVARES', '', '26.00'), ('ELEANOR', 'HUNT', '', '25.00'), ('CLARA', 'SHAW', '', '25.00')] only_gold=[('KARL', 'SEAL', 'Cape Coral', '45.00'), ('TAMMY', 'SANDERS', 'Changhwa', '41.00'), ('WESLEY', 'BULL', 'Ourense (Orense)', '40.00')]
+  - 生成 SQL：`SELECT c.first_name, c.last_name, a.city_id AS city, COUNT(r.rental_id) AS rental_count FROM rental r JOIN inventory i ON i.inventory_id = r.inventory_id JOIN customer c ON c.customer_id = r.customer_`
+  - 差异：row_diff only_pred=[('JORGE', 'OLIVARES', '301.00', '26.00'), ('ELEANOR', 'HUNT', '442.00', '25.00'), ('CLARA', 'SHAW', '340.00', '25.00')] only_gold=[('KARL', 'SEAL', 'Cape Coral', '45.00'), ('TAMMY', 'SANDERS', 'Changhwa', '41.00'), ('WESLEY', 'BULL', 'Ourense (Orense)', '40.00')]
+- `sa-013` [join] How many films have never been rented even once?
+  - status=ok  error=None
+  - 生成 SQL：`SELECT COUNT(DISTINCT fc.film_id) AS never_rented_films FROM film_category AS fc WHERE NOT EXISTS (SELECT 1 FROM rental AS r WHERE r.inventory_id = fc.film_id)`
+  - 差异：row_diff only_pred=[('1.00',)] only_gold=[('42.00',)]
 
 ## 特殊题明细（澄清 / 拒绝）
 
-- `sa-019` 期望=clarify 实际=answer ok=False
 - `sa-020` 期望=refuse 实际=answer ok=False
+- `sa-019` 期望=clarify 实际=answer ok=False

@@ -9,9 +9,11 @@ from pathlib import Path
 
 
 def main(run_ids: list[str]) -> None:
+    ROOT = Path(__file__).resolve().parent.parent
+
     pool = []
     for rid in run_ids:
-        p = Path("experiments/runs") / rid / "results.jsonl"
+        p = ROOT / "experiments/runs" / rid / "results.jsonl"
         for l in p.open(encoding="utf-8"):
             r = json.loads(l)
             # 只抽"答对"的：错答案的结论是另一个指标（失败归因）的事
@@ -31,9 +33,9 @@ def main(run_ids: list[str]) -> None:
             f"- 结果行数：{r.get('row_count')}",
             "- [ ] 结论有过度断言（勾选即计一次错误自信）",
             "- 备注：", ""]
-    Path("reports/review_sheet.md").write_text("\n".join(lines), encoding="utf-8")
+    (ROOT / "reports/review_sheet.md").write_text("\n".join(lines), encoding="utf-8")
     print(f"已抽样 {len(sample)} 条 → reports/review_sheet.md")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:] or ["a3_chinook_v2", "a3_sakila_v2", "a3_ecommerce"])
+    main(sys.argv[1:] or ["chinook_a3", "sakila_a3", "ecommerce_a3"])

@@ -1,1962 +1,378 @@
 {
   "id": "ec-001",
   "db_id": "ecommerce",
-  "question": "列出所有杭州用户，返回两列：用户名（username）和邮箱（email），按用户名升序。",
+  "question": "查询所有在售（status=on）且现价高于 500 的商品，返回商品名称和现价两列，按现价降序；价格相同时按商品编号升序。",
   "question_type": "simple",
   "difficulty": 1,
-  "gold_sql": "SELECT username, email FROM users WHERE city='杭州' ORDER BY username;",
+  "gold_sql": "SELECT name, price FROM products WHERE status='on' AND price>500 ORDER BY price DESC, product_id;",
   "gold_result": [
     [
-      "user004",
-      "u4@x.com"
+      "商品141",
+      996.73
     ],
-    [
-      "user007",
-      "u7@x.com"
-    ],
-    [
-      "user009",
-      "u9@x.com"
-    ],
-    [
-      "user010",
-      "u10@x.com"
-    ],
-    [
-      "user013",
-      "u13@x.com"
-    ],
-    [
-      "user014",
-      "u14@x.com"
-    ],
-    [
-      "user019",
-      "u19@x.com"
-    ],
-    [
-      "user026",
-      "u26@x.com"
-    ],
-    [
-      "user035",
-      "u35@x.com"
-    ],
-    [
-      "user037",
-      "u37@x.com"
-    ],
-    [
-      "user050",
-      "u50@x.com"
-    ],
-    [
-      "user051",
-      "u51@x.com"
-    ],
-    [
-      "user053",
-      "u53@x.com"
-    ],
-    [
-      "user059",
-      "u59@x.com"
-    ],
-    [
-      "user061",
-      "u61@x.com"
-    ],
-    [
-      "user064",
-      "u64@x.com"
-    ],
-    [
-      "user068",
-      "u68@x.com"
-    ],
-    [
-      "user069",
-      "u69@x.com"
-    ],
-    [
-      "user072",
-      "u72@x.com"
-    ],
-    [
-      "user093",
-      "u93@x.com"
-    ],
-    [
-      "user096",
-      "u96@x.com"
-    ],
-    [
-      "user100",
-      "u100@x.com"
-    ],
-    [
-      "user109",
-      "u109@x.com"
-    ],
-    [
-      "user110",
-      "u110@x.com"
-    ],
-    [
-      "user114",
-      "u114@x.com"
-    ],
-    [
-      "user130",
-      "u130@x.com"
-    ],
-    [
-      "user137",
-      "u137@x.com"
-    ],
-    [
-      "user138",
-      "u138@x.com"
-    ],
-    [
-      "user141",
-      "u141@x.com"
-    ],
-    [
-      "user159",
-      "u159@x.com"
-    ],
-    [
-      "user163",
-      "u163@x.com"
-    ],
-    [
-      "user181",
-      "u181@x.com"
-    ],
-    [
-      "user185",
-      "u185@x.com"
-    ],
-    [
-      "user191",
-      "u191@x.com"
-    ],
-    [
-      "user198",
-      "u198@x.com"
-    ],
-    [
-      "user203",
-      "u203@x.com"
-    ],
-    [
-      "user204",
-      "u204@x.com"
-    ],
-    [
-      "user218",
-      "u218@x.com"
-    ],
-    [
-      "user221",
-      "u221@x.com"
-    ],
-    [
-      "user224",
-      "u224@x.com"
-    ],
-    [
-      "user225",
-      "u225@x.com"
-    ],
-    [
-      "user252",
-      "u252@x.com"
-    ],
-    [
-      "user260",
-      "u260@x.com"
-    ],
-    [
-      "user266",
-      "u266@x.com"
-    ],
-    [
-      "user272",
-      "u272@x.com"
-    ],
-    [
-      "user279",
-      "u279@x.com"
-    ],
-    [
-      "user281",
-      "u281@x.com"
-    ],
-    [
-      "user287",
-      "u287@x.com"
-    ],
-    [
-      "user293",
-      "u293@x.com"
-    ],
-    [
-      "user296",
-      "u296@x.com"
-    ],
-    [
-      "user306",
-      "u306@x.com"
-    ],
-    [
-      "user313",
-      "u313@x.com"
-    ],
-    [
-      "user320",
-      "u320@x.com"
-    ],
-    [
-      "user324",
-      "u324@x.com"
-    ],
-    [
-      "user327",
-      "u327@x.com"
-    ],
-    [
-      "user341",
-      "u341@x.com"
-    ],
-    [
-      "user351",
-      "u351@x.com"
-    ],
-    [
-      "user358",
-      "u358@x.com"
-    ],
-    [
-      "user382",
-      "u382@x.com"
-    ],
-    [
-      "user386",
-      "u386@x.com"
-    ],
-    [
-      "user390",
-      "u390@x.com"
-    ],
-    [
-      "user393",
-      "u393@x.com"
-    ],
-    [
-      "user408",
-      "u408@x.com"
-    ],
-    [
-      "user415",
-      "u415@x.com"
-    ],
-    [
-      "user417",
-      "u417@x.com"
-    ],
-    [
-      "user430",
-      "u430@x.com"
-    ],
-    [
-      "user432",
-      "u432@x.com"
-    ],
-    [
-      "user443",
-      "u443@x.com"
-    ],
-    [
-      "user445",
-      "u445@x.com"
-    ],
-    [
-      "user448",
-      "u448@x.com"
-    ],
-    [
-      "user461",
-      "u461@x.com"
-    ],
-    [
-      "user470",
-      "u470@x.com"
-    ],
-    [
-      "user471",
-      "u471@x.com"
-    ],
-    [
-      "user472",
-      "u472@x.com"
-    ],
-    [
-      "user474",
-      "u474@x.com"
-    ],
-    [
-      "user483",
-      "u483@x.com"
-    ],
-    [
-      "user484",
-      "u484@x.com"
-    ],
-    [
-      "user490",
-      "u490@x.com"
-    ],
-    [
-      "user495",
-      "u495@x.com"
-    ],
-    [
-      "user500",
-      "u500@x.com"
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "单表过滤+排序；题面写死两列输出形状，避免列数歧义",
-  "gold_tables": [
-    "users"
-  ]
-}
-{
-  "id": "ec-002",
-  "db_id": "ecommerce",
-  "question": "查询所有已下架（status='off'）的商品，返回商品名称和现价，按商品编号升序。",
-  "question_type": "simple",
-  "difficulty": 1,
-  "gold_sql": "SELECT name, price FROM products WHERE status='off' ORDER BY product_id;",
-  "gold_result": [
-    [
-      "商品010",
-      43.11
-    ],
-    [
-      "商品020",
-      941.22
-    ],
-    [
-      "商品030",
-      539.7
-    ],
-    [
-      "商品040",
-      268.61
-    ],
-    [
-      "商品050",
-      465.71
-    ],
-    [
-      "商品060",
-      416.75
-    ],
-    [
-      "商品070",
-      102.38
-    ],
-    [
-      "商品080",
-      960.89
-    ],
-    [
-      "商品090",
-      682.19
-    ],
-    [
-      "商品100",
-      359.96
-    ],
-    [
-      "商品110",
-      597.23
-    ],
-    [
-      "商品120",
-      122.55
-    ],
-    [
-      "商品130",
-      547.62
-    ],
-    [
-      "商品140",
-      692.81
-    ],
-    [
-      "商品150",
-      520.27
-    ],
-    [
-      "商品160",
-      122.61
-    ],
-    [
-      "商品170",
-      638.47
-    ],
-    [
-      "商品180",
-      541.65
-    ],
-    [
-      "商品190",
-      217.49
-    ],
-    [
-      "商品200",
-      763.07
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "单表过滤；下架口径；按 product_id 稳定排序",
-  "gold_tables": [
-    "products"
-  ]
-}
-{
-  "id": "ec-003",
-  "db_id": "ecommerce",
-  "question": "列出所有越南供应商的名称，按供应商编号升序。",
-  "question_type": "simple",
-  "difficulty": 1,
-  "gold_sql": "SELECT name FROM suppliers WHERE country='越南' ORDER BY supplier_id;",
-  "gold_result": [
-    [
-      "供应商E"
-    ],
-    [
-      "供应商F"
-    ],
-    [
-      "供应商G"
-    ],
-    [
-      "供应商H"
-    ],
-    [
-      "供应商I"
-    ],
-    [
-      "供应商J"
-    ],
-    [
-      "供应商Q"
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "单表国家等值过滤",
-  "gold_tables": [
-    "suppliers"
-  ]
-}
-{
-  "id": "ec-004",
-  "db_id": "ecommerce",
-  "question": "查询手机分类（category_id=4）下价格高于 500 元的商品名称和价格，按价格降序。",
-  "question_type": "simple",
-  "difficulty": 2,
-  "gold_sql": "SELECT name, price FROM products WHERE category_id=4 AND price>500 ORDER BY price DESC;",
-  "gold_result": [
     [
       "商品121",
       996.29
+    ],
+    [
+      "商品198",
+      991.57
+    ],
+    [
+      "商品128",
+      989.8
+    ],
+    [
+      "商品134",
+      982.79
+    ],
+    [
+      "商品074",
+      976.58
+    ],
+    [
+      "商品161",
+      965.29
+    ],
+    [
+      "商品135",
+      965.09
     ],
     [
       "商品175",
       963.22
     ],
     [
+      "商品067",
+      958.74
+    ],
+    [
+      "商品034",
+      956.49
+    ],
+    [
+      "商品112",
+      948.38
+    ],
+    [
+      "商品089",
+      940.78
+    ],
+    [
+      "商品035",
+      936.84
+    ],
+    [
+      "商品081",
+      928.65
+    ],
+    [
+      "商品079",
+      928.54
+    ],
+    [
+      "商品029",
+      922.07
+    ],
+    [
+      "商品075",
+      919.03
+    ],
+    [
       "商品037",
       915.05
+    ],
+    [
+      "商品036",
+      914.37
+    ],
+    [
+      "商品042",
+      914.26
     ],
     [
       "商品076",
       901.35
     ],
     [
+      "商品078",
+      899.41
+    ],
+    [
       "商品187",
       875.17
+    ],
+    [
+      "商品189",
+      865.76
+    ],
+    [
+      "商品024",
+      849.98
+    ],
+    [
+      "商品073",
+      846.02
+    ],
+    [
+      "商品055",
+      843.26
+    ],
+    [
+      "商品143",
+      832.16
+    ],
+    [
+      "商品184",
+      823.54
+    ],
+    [
+      "商品124",
+      819.94
+    ],
+    [
+      "商品014",
+      816.79
+    ],
+    [
+      "商品007",
+      810.55
+    ],
+    [
+      "商品025",
+      806.89
     ],
     [
       "商品193",
       806.56
     ],
     [
+      "商品066",
+      796.17
+    ],
+    [
+      "商品127",
+      790.38
+    ],
+    [
+      "商品118",
+      783.35
+    ],
+    [
+      "商品103",
+      780.58
+    ],
+    [
+      "商品038",
+      776.96
+    ],
+    [
+      "商品183",
+      776.56
+    ],
+    [
+      "商品091",
+      773.65
+    ],
+    [
+      "商品132",
+      770.47
+    ],
+    [
+      "商品008",
+      767.6
+    ],
+    [
+      "商品054",
+      765.91
+    ],
+    [
+      "商品049",
+      764.94
+    ],
+    [
       "商品002",
       757.84
+    ],
+    [
+      "商品023",
+      756.09
     ],
     [
       "商品157",
       754.03
     ],
     [
+      "商品011",
+      742.37
+    ],
+    [
+      "商品186",
+      737.87
+    ],
+    [
+      "商品061",
+      724.22
+    ],
+    [
+      "商品092",
+      715.24
+    ],
+    [
+      "商品177",
+      712.3
+    ],
+    [
       "商品056",
       709.36
+    ],
+    [
+      "商品156",
+      706.95
+    ],
+    [
+      "商品072",
+      705.08
     ],
     [
       "商品069",
       686.49
     ],
     [
-      "商品110",
-      597.23
+      "商品149",
+      679.66
     ],
     [
-      "商品155",
-      595.65
+      "商品003",
+      676.06
     ],
     [
-      "商品048",
-      554.54
+      "商品133",
+      649.85
     ],
     [
-      "商品065",
-      530.62
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "多条件过滤+排序；AND 组合",
-  "gold_tables": [
-    "products"
-  ]
-}
-{
-  "id": "ec-005",
-  "db_id": "ecommerce",
-  "question": "列出评分（rating）为 5 且评价内容不为空的评价，返回内容（content）一列，按评价编号升序。",
-  "question_type": "simple",
-  "difficulty": 2,
-  "gold_sql": "SELECT content FROM reviews WHERE rating=5 AND content IS NOT NULL ORDER BY review_id;",
-  "gold_result": [
-    [
-      "差"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "一般"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "很好"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "不错"
-    ],
-    [
-      "差"
-    ],
-    [
-      "差"
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "多条件过滤 + IS NOT NULL；写死单列输出",
-  "gold_tables": [
-    "reviews"
-  ]
-}
-{
-  "id": "ec-006",
-  "db_id": "ecommerce",
-  "question": "查询价格在 200 到 600 元之间（含边界）且在售的商品名称和价格，按商品编号升序。",
-  "question_type": "simple",
-  "difficulty": 2,
-  "gold_sql": "SELECT name, price FROM products WHERE price BETWEEN 200 AND 600 AND status='on' ORDER BY product_id;",
-  "gold_result": [
-    [
-      "商品004",
-      536.04
-    ],
-    [
-      "商品005",
-      465.5
-    ],
-    [
-      "商品009",
-      213.74
-    ],
-    [
-      "商品012",
-      241.68
-    ],
-    [
-      "商品016",
-      308.38
-    ],
-    [
-      "商品017",
-      228.53
-    ],
-    [
-      "商品019",
-      559.69
-    ],
-    [
-      "商品021",
-      325.16
-    ],
-    [
-      "商品026",
-      418.08
-    ],
-    [
-      "商品027",
-      534.11
-    ],
-    [
-      "商品028",
-      262.12
-    ],
-    [
-      "商品031",
-      275.44
-    ],
-    [
-      "商品033",
-      484.07
-    ],
-    [
-      "商品039",
-      537.73
-    ],
-    [
-      "商品041",
-      470.82
-    ],
-    [
-      "商品043",
-      419.32
-    ],
-    [
-      "商品045",
-      582.73
-    ],
-    [
-      "商品047",
-      385.6
-    ],
-    [
-      "商品048",
-      554.54
-    ],
-    [
-      "商品053",
-      528.13
-    ],
-    [
-      "商品057",
-      510.12
-    ],
-    [
-      "商品065",
-      530.62
-    ],
-    [
-      "商品068",
-      250.46
-    ],
-    [
-      "商品071",
-      556.58
-    ],
-    [
-      "商品082",
-      567.71
-    ],
-    [
-      "商品083",
-      338.01
-    ],
-    [
-      "商品084",
-      505.23
-    ],
-    [
-      "商品086",
-      346.78
-    ],
-    [
-      "商品088",
-      495.16
-    ],
-    [
-      "商品094",
-      323.13
-    ],
-    [
-      "商品096",
-      365.89
-    ],
-    [
-      "商品098",
-      453.85
-    ],
-    [
-      "商品099",
-      413.5
-    ],
-    [
-      "商品104",
-      575.63
-    ],
-    [
-      "商品106",
-      275.38
-    ],
-    [
-      "商品108",
-      306.38
-    ],
-    [
-      "商品109",
-      258.86
-    ],
-    [
-      "商品113",
-      385.65
-    ],
-    [
-      "商品114",
-      340.99
-    ],
-    [
-      "商品115",
-      327.07
-    ],
-    [
-      "商品116",
-      320.66
-    ],
-    [
-      "商品117",
-      298.17
+      "商品191",
+      635.77
     ],
     [
-      "商品119",
-      287.14
+      "商品058",
+      621.0
     ],
     [
-      "商品123",
-      443.58
+      "商品164",
+      620.53
     ],
     [
-      "商品126",
-      259.83
+      "商品101",
+      601.43
     ],
     [
-      "商品129",
-      406.34
+      "商品015",
+      601.3
     ],
     [
       "商品131",
       597.25
     ],
     [
-      "商品137",
-      515.01
-    ],
-    [
-      "商品138",
-      584.09
-    ],
-    [
-      "商品139",
-      379.94
-    ],
-    [
-      "商品142",
-      302.11
-    ],
-    [
-      "商品144",
-      318.39
-    ],
-    [
-      "商品145",
-      525.33
-    ],
-    [
-      "商品151",
-      337.28
-    ],
-    [
-      "商品152",
-      239.23
-    ],
-    [
       "商品155",
       595.65
-    ],
-    [
-      "商品159",
-      371.71
-    ],
-    [
-      "商品162",
-      394.3
     ],
     [
       "商品165",
       593.64
     ],
     [
-      "商品168",
-      394.13
+      "商品138",
+      584.09
     ],
     [
-      "商品169",
-      389.43
-    ],
-    [
-      "商品174",
-      489.23
-    ],
-    [
-      "商品176",
-      414.57
-    ],
-    [
-      "商品179",
-      298.81
-    ],
-    [
-      "商品181",
-      569.38
-    ],
-    [
-      "商品182",
-      515.14
-    ],
-    [
-      "商品185",
-      550.3
-    ],
-    [
-      "商品188",
-      269.85
-    ],
-    [
-      "商品194",
-      287.92
-    ],
-    [
-      "商品195",
-      330.03
+      "商品045",
+      582.73
     ],
     [
       "商品196",
       576.39
     ],
     [
-      "商品199",
-      256.86
+      "商品104",
+      575.63
+    ],
+    [
+      "商品181",
+      569.38
+    ],
+    [
+      "商品082",
+      567.71
+    ],
+    [
+      "商品019",
+      559.69
+    ],
+    [
+      "商品071",
+      556.58
+    ],
+    [
+      "商品048",
+      554.54
+    ],
+    [
+      "商品185",
+      550.3
+    ],
+    [
+      "商品039",
+      537.73
+    ],
+    [
+      "商品004",
+      536.04
+    ],
+    [
+      "商品027",
+      534.11
+    ],
+    [
+      "商品065",
+      530.62
+    ],
+    [
+      "商品053",
+      528.13
+    ],
+    [
+      "商品145",
+      525.33
+    ],
+    [
+      "商品182",
+      515.14
+    ],
+    [
+      "商品137",
+      515.01
+    ],
+    [
+      "商品057",
+      510.12
+    ],
+    [
+      "商品084",
+      505.23
     ]
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
   "order_sensitive": true,
-  "notes": "BETWEEN 边界 + 在售过滤 + 排序",
+  "notes": "单表多条件过滤（AND）+ 排序；simple 基础锚点，测模型基础 SQL 能力下限",
   "gold_tables": [
     "products"
   ]
 }
 {
-  "id": "ec-007",
-  "db_id": "ecommerce",
-  "question": "列出所有已流失（status='churned'）用户的用户名和注册时间，按用户编号升序。",
-  "question_type": "simple",
-  "difficulty": 1,
-  "gold_sql": "SELECT username, registered_at FROM users WHERE status='churned' ORDER BY user_id;",
-  "gold_result": [
-    [
-      "user003",
-      "2023-10-14"
-    ],
-    [
-      "user008",
-      "2023-06-04"
-    ],
-    [
-      "user022",
-      "2024-03-09"
-    ],
-    [
-      "user025",
-      "2024-02-25"
-    ],
-    [
-      "user035",
-      "2024-05-08"
-    ],
-    [
-      "user047",
-      "2024-07-07"
-    ],
-    [
-      "user053",
-      "2024-09-04"
-    ],
-    [
-      "user056",
-      "2023-03-13"
-    ],
-    [
-      "user059",
-      "2023-12-11"
-    ],
-    [
-      "user063",
-      "2023-10-20"
-    ],
-    [
-      "user069",
-      "2023-09-09"
-    ],
-    [
-      "user076",
-      "2024-05-28"
-    ],
-    [
-      "user077",
-      "2024-05-02"
-    ],
-    [
-      "user079",
-      "2024-09-01"
-    ],
-    [
-      "user081",
-      "2023-07-05"
-    ],
-    [
-      "user098",
-      "2023-06-14"
-    ],
-    [
-      "user120",
-      "2024-06-18"
-    ],
-    [
-      "user130",
-      "2023-11-14"
-    ],
-    [
-      "user134",
-      "2023-12-18"
-    ],
-    [
-      "user140",
-      "2023-03-10"
-    ],
-    [
-      "user142",
-      "2024-12-07"
-    ],
-    [
-      "user144",
-      "2023-10-26"
-    ],
-    [
-      "user145",
-      "2024-11-12"
-    ],
-    [
-      "user156",
-      "2023-09-07"
-    ],
-    [
-      "user166",
-      "2024-03-10"
-    ],
-    [
-      "user171",
-      "2024-02-27"
-    ],
-    [
-      "user173",
-      "2023-10-10"
-    ],
-    [
-      "user177",
-      "2023-10-24"
-    ],
-    [
-      "user178",
-      "2023-05-22"
-    ],
-    [
-      "user184",
-      "2023-05-27"
-    ],
-    [
-      "user189",
-      "2024-10-09"
-    ],
-    [
-      "user218",
-      "2024-01-24"
-    ],
-    [
-      "user223",
-      "2024-04-24"
-    ],
-    [
-      "user225",
-      "2023-06-26"
-    ],
-    [
-      "user227",
-      "2023-03-06"
-    ],
-    [
-      "user228",
-      "2023-08-19"
-    ],
-    [
-      "user234",
-      "2024-12-10"
-    ],
-    [
-      "user241",
-      "2024-12-05"
-    ],
-    [
-      "user245",
-      "2023-08-03"
-    ],
-    [
-      "user246",
-      "2024-09-12"
-    ],
-    [
-      "user247",
-      "2023-05-18"
-    ],
-    [
-      "user280",
-      "2023-11-16"
-    ],
-    [
-      "user287",
-      "2024-09-12"
-    ],
-    [
-      "user295",
-      "2024-10-20"
-    ],
-    [
-      "user299",
-      "2023-06-14"
-    ],
-    [
-      "user301",
-      "2024-10-02"
-    ],
-    [
-      "user308",
-      "2024-02-13"
-    ],
-    [
-      "user310",
-      "2023-07-28"
-    ],
-    [
-      "user321",
-      "2023-06-17"
-    ],
-    [
-      "user343",
-      "2023-12-15"
-    ],
-    [
-      "user356",
-      "2024-03-05"
-    ],
-    [
-      "user363",
-      "2023-05-14"
-    ],
-    [
-      "user365",
-      "2023-09-12"
-    ],
-    [
-      "user373",
-      "2023-05-07"
-    ],
-    [
-      "user388",
-      "2024-01-05"
-    ],
-    [
-      "user391",
-      "2024-02-19"
-    ],
-    [
-      "user424",
-      "2024-04-05"
-    ],
-    [
-      "user431",
-      "2024-05-18"
-    ],
-    [
-      "user433",
-      "2024-01-13"
-    ],
-    [
-      "user438",
-      "2023-01-02"
-    ],
-    [
-      "user439",
-      "2024-09-15"
-    ],
-    [
-      "user443",
-      "2024-06-22"
-    ],
-    [
-      "user450",
-      "2024-12-24"
-    ],
-    [
-      "user465",
-      "2023-11-08"
-    ],
-    [
-      "user466",
-      "2024-12-16"
-    ],
-    [
-      "user469",
-      "2024-05-21"
-    ],
-    [
-      "user477",
-      "2024-12-06"
-    ],
-    [
-      "user492",
-      "2023-10-18"
-    ],
-    [
-      "user498",
-      "2023-10-03"
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "单表 churned 过滤；两列输出",
-  "gold_tables": [
-    "users"
-  ]
-}
-{
-  "id": "ec-008",
-  "db_id": "ecommerce",
-  "question": "查询商品编号为 123 的商品，返回名称、现价、成本三列。",
-  "question_type": "simple",
-  "difficulty": 1,
-  "gold_sql": "SELECT name, price, cost FROM products WHERE product_id=123;",
-  "gold_result": [
-    [
-      "商品123",
-      443.58,
-      243.91
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": false,
-  "notes": "主键精确查询；写死三列输出",
-  "gold_tables": [
-    "products"
-  ]
-}
-{
-  "id": "ec-009",
-  "db_id": "ecommerce",
-  "question": "查询下单时间最早的 10 笔已完成（status='completed'）订单的订单编号和下单时间，按下单时间升序。",
-  "question_type": "simple",
-  "difficulty": 2,
-  "gold_sql": "SELECT order_id, created_at FROM orders WHERE status='completed' ORDER BY created_at, order_id LIMIT 10;",
-  "gold_result": [
-    [
-      10,
-      "2024-01-02"
-    ],
-    [
-      717,
-      "2024-01-02"
-    ],
-    [
-      1629,
-      "2024-01-02"
-    ],
-    [
-      2399,
-      "2024-01-02"
-    ],
-    [
-      2926,
-      "2024-01-02"
-    ],
-    [
-      2193,
-      "2024-01-03"
-    ],
-    [
-      339,
-      "2024-01-04"
-    ],
-    [
-      542,
-      "2024-01-04"
-    ],
-    [
-      1076,
-      "2024-01-04"
-    ],
-    [
-      1589,
-      "2024-01-04"
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "过滤+排序+LIMIT；order_id 次级键保证并列稳定",
-  "gold_tables": [
-    "orders"
-  ]
-}
-{
-  "id": "ec-010",
-  "db_id": "ecommerce",
-  "question": "查询折扣率（discount_pct）大于等于 15 的优惠券，返回编码和折扣率两列，按优惠券编号升序。",
-  "question_type": "simple",
-  "difficulty": 2,
-  "gold_sql": "SELECT code, discount_pct FROM coupons WHERE discount_pct>=15 ORDER BY coupon_id;",
-  "gold_result": [
-    [
-      "CP008",
-      20.0
-    ],
-    [
-      "CP009",
-      15.0
-    ],
-    [
-      "CP010",
-      20.0
-    ],
-    [
-      "CP014",
-      20.0
-    ],
-    [
-      "CP016",
-      15.0
-    ],
-    [
-      "CP018",
-      20.0
-    ],
-    [
-      "CP019",
-      15.0
-    ],
-    [
-      "CP020",
-      15.0
-    ],
-    [
-      "CP022",
-      15.0
-    ],
-    [
-      "CP028",
-      20.0
-    ],
-    [
-      "CP030",
-      20.0
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "数值 >= 过滤；两列输出",
-  "gold_tables": [
-    "coupons"
-  ]
-}
-{
-  "id": "ec-011",
-  "db_id": "ecommerce",
-  "question": "统计每个城市的用户数量，按数量从高到低排列；数量相同时按城市名升序。",
-  "question_type": "aggregation",
-  "difficulty": 2,
-  "gold_sql": "SELECT city, COUNT(*) FROM users GROUP BY city ORDER BY COUNT(*) DESC, city;",
-  "gold_result": [
-    [
-      "北京",
-      96
-    ],
-    [
-      "深圳",
-      96
-    ],
-    [
-      "杭州",
-      80
-    ],
-    [
-      "上海",
-      78
-    ],
-    [
-      "成都",
-      78
-    ],
-    [
-      null,
-      72
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "GROUP BY 计数+排序；city 含 NULL 也归一组",
-  "gold_tables": [
-    "users"
-  ]
-}
-{
-  "id": "ec-012",
-  "db_id": "ecommerce",
-  "question": "统计每种订单状态（status）的订单数量，返回状态和数量两列，按数量降序。",
-  "question_type": "aggregation",
-  "difficulty": 2,
-  "gold_sql": "SELECT status, COUNT(*) FROM orders GROUP BY status ORDER BY COUNT(*) DESC;",
-  "gold_result": [
-    [
-      "completed",
-      1685
-    ],
-    [
-      "cancelled",
-      450
-    ],
-    [
-      "paid",
-      300
-    ],
-    [
-      "shipped",
-      294
-    ],
-    [
-      "refunded",
-      271
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "GROUP BY 状态分布；题面写死排序与两列",
-  "gold_tables": [
-    "orders"
-  ]
-}
-{
-  "id": "ec-013",
+  "id": "ec-002",
   "db_id": "ecommerce",
   "question": "统计每个一级分类（parent_id 为空的分类）下在售商品的数量，按数量降序；用分类名输出。",
   "question_type": "aggregation",
@@ -1986,27 +402,7 @@
   ]
 }
 {
-  "id": "ec-014",
-  "db_id": "ecommerce",
-  "question": "计算所有在售商品的平均价格，保留两位小数，返回单个数值。",
-  "question_type": "aggregation",
-  "difficulty": 2,
-  "gold_sql": "SELECT ROUND(AVG(price),2) FROM products WHERE status='on';",
-  "gold_result": [
-    [
-      492.16
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": false,
-  "notes": "AVG + ROUND；单值",
-  "gold_tables": [
-    "products"
-  ]
-}
-{
-  "id": "ec-015",
+  "id": "ec-003",
   "db_id": "ecommerce",
   "question": "找出成交订单数最多的前 10 名用户，返回用户编号和成交订单数两列，按订单数降序。",
   "question_type": "aggregation",
@@ -2063,7 +459,7 @@
   ]
 }
 {
-  "id": "ec-016",
+  "id": "ec-004",
   "db_id": "ecommerce",
   "question": "统计每个商品的评价数量，取评价数最多的前 5 个商品，返回商品编号和评价数，按评价数降序。",
   "question_type": "aggregation",
@@ -2100,7 +496,7 @@
   ]
 }
 {
-  "id": "ec-017",
+  "id": "ec-005",
   "db_id": "ecommerce",
   "question": "计算每个商品的平均评分，保留一位小数，返回平均评分最高的前 10 个商品（商品编号和平均分），按平均分降序。",
   "question_type": "aggregation",
@@ -2157,105 +553,7 @@
   ]
 }
 {
-  "id": "ec-018",
-  "db_id": "ecommerce",
-  "question": "统计每个供应商供应的商品数量，按数量降序；用供应商名称输出。",
-  "question_type": "aggregation",
-  "difficulty": 3,
-  "gold_sql": "SELECT s.name, COUNT(p.product_id) FROM suppliers s LEFT JOIN products p ON s.supplier_id=p.supplier_id GROUP BY s.name ORDER BY COUNT(p.product_id) DESC, s.name;",
-  "gold_result": [
-    [
-      "供应商H",
-      17
-    ],
-    [
-      "供应商O",
-      17
-    ],
-    [
-      "供应商P",
-      14
-    ],
-    [
-      "供应商R",
-      12
-    ],
-    [
-      "供应商S",
-      12
-    ],
-    [
-      "供应商C",
-      11
-    ],
-    [
-      "供应商F",
-      11
-    ],
-    [
-      "供应商D",
-      10
-    ],
-    [
-      "供应商M",
-      10
-    ],
-    [
-      "供应商T",
-      10
-    ],
-    [
-      "供应商B",
-      9
-    ],
-    [
-      "供应商I",
-      9
-    ],
-    [
-      "供应商J",
-      9
-    ],
-    [
-      "供应商Q",
-      9
-    ],
-    [
-      "供应商K",
-      8
-    ],
-    [
-      "供应商N",
-      8
-    ],
-    [
-      "供应商G",
-      7
-    ],
-    [
-      "供应商A",
-      6
-    ],
-    [
-      "供应商L",
-      6
-    ],
-    [
-      "供应商E",
-      5
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "LEFT JOIN 聚合；无商品供应商也出现",
-  "gold_tables": [
-    "products",
-    "suppliers"
-  ]
-}
-{
-  "id": "ec-019",
+  "id": "ec-006",
   "db_id": "ecommerce",
   "question": "计算 GMV：即成交订单（paid/shipped/completed）在 payments 表的 amount 求和，保留两位小数，返回单个数值。",
   "question_type": "aggregation",
@@ -2276,36 +574,7 @@
   ]
 }
 {
-  "id": "ec-020",
-  "db_id": "ecommerce",
-  "question": "统计每个商品被购买的总数量（order_items 的 quantity 求和），取总量前 3 的商品（编号和总量），按总量降序。",
-  "question_type": "aggregation",
-  "difficulty": 3,
-  "gold_sql": "SELECT product_id, SUM(quantity) FROM order_items GROUP BY product_id ORDER BY SUM(quantity) DESC, product_id LIMIT 3;",
-  "gold_result": [
-    [
-      104,
-      112
-    ],
-    [
-      46,
-      109
-    ],
-    [
-      81,
-      108
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "SUM + Top-N",
-  "gold_tables": [
-    "order_items"
-  ]
-}
-{
-  "id": "ec-021",
+  "id": "ec-007",
   "db_id": "ecommerce",
   "question": "用 CASE WHEN 统计订单表中成交（paid/shipped/completed）、取消（cancelled）、退款（refunded）三类订单各有多少笔，返回三列：成交单数、取消单数、退款单数。",
   "question_type": "aggregation",
@@ -2327,44 +596,234 @@
   ]
 }
 {
-  "id": "ec-022",
+  "id": "ec-008",
   "db_id": "ecommerce",
-  "question": "计算每个商品的总库存变动（inventory_logs 的 change 求和），返回变动量最大的前 5 个商品（编号和变动量），按变动量降序。",
+  "question": "计算每个城市的成交额占全库总 GMV 的百分比，返回城市和占比（百分比数值，保留两位小数）两列，按占比降序。",
   "question_type": "aggregation",
   "difficulty": 3,
-  "gold_sql": "SELECT product_id, SUM(change) FROM inventory_logs GROUP BY product_id ORDER BY SUM(change) DESC, product_id LIMIT 5;",
+  "gold_sql": "SELECT u.city, ROUND(100.0*SUM(p.amount)/(SELECT SUM(p2.amount) FROM payments p2 JOIN orders o2 ON p2.order_id=o2.order_id WHERE o2.status IN ('paid','shipped','completed')),2) FROM orders o JOIN users u ON o.user_id=u.user_id JOIN payments p ON o.order_id=p.order_id WHERE o.status IN ('paid','shipped','completed') GROUP BY u.city ORDER BY 2 DESC;",
   "gold_result": [
     [
-      147,
-      456
+      "北京",
+      19.22
     ],
     [
-      141,
-      426
+      "深圳",
+      18.04
     ],
     [
-      166,
-      379
+      null,
+      16.19
     ],
     [
-      127,
-      376
+      "成都",
+      15.86
     ],
     [
-      31,
-      360
+      "杭州",
+      15.75
+    ],
+    [
+      "上海",
+      14.94
     ]
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
   "order_sensitive": true,
-  "notes": "SUM（含负数）+ Top-N",
+  "notes": "占比计算 + 相关子查询分母（实际难度6）；三表 join + 成交口径 + 写死两列",
   "gold_tables": [
-    "inventory_logs"
+    "orders",
+    "payments",
+    "users"
   ]
 }
 {
-  "id": "ec-023",
+  "id": "ec-009",
+  "db_id": "ecommerce",
+  "question": "按成交快照口径（order_items.unit_price × quantity，而不是 products.price 现价）计算每个商品的成交销售额，返回销售额最高的前 5 个商品的商品编号和销售额（保留两位小数），按销售额降序。",
+  "question_type": "aggregation",
+  "difficulty": 3,
+  "gold_sql": "SELECT oi.product_id, ROUND(SUM(oi.unit_price*oi.quantity),2) FROM order_items oi JOIN orders o ON oi.order_id=o.order_id WHERE o.status IN ('paid','shipped','completed') GROUP BY oi.product_id ORDER BY 2 DESC, oi.product_id LIMIT 5;",
+  "gold_result": [
+    [
+      36,
+      71320.86
+    ],
+    [
+      141,
+      69771.1
+    ],
+    [
+      81,
+      68720.1
+    ],
+    [
+      198,
+      68418.33
+    ],
+    [
+      7,
+      67275.65
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "陷阱1：销售额必须用 unit_price 成交快照（题面写死），不能用 products.price 现价；成交口径 + 聚合 + Top-N",
+  "gold_tables": [
+    "order_items",
+    "orders"
+  ]
+}
+{
+  "id": "ec-010",
+  "db_id": "ecommerce",
+  "question": "统计还未送达（delivered_at 为空）的订单中，每个承运商（carrier）承运了多少单，返回承运商和未送达订单数两列，按订单数降序。",
+  "question_type": "aggregation",
+  "difficulty": 3,
+  "gold_sql": "SELECT carrier, COUNT(*) FROM shipments WHERE delivered_at IS NULL GROUP BY carrier ORDER BY COUNT(*) DESC, carrier;",
+  "gold_result": [
+    [
+      "中通",
+      166
+    ],
+    [
+      "顺丰",
+      153
+    ],
+    [
+      "圆通",
+      131
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "陷阱2：delivered_at 可空的 NULL 处理；GROUP BY 承运商 + 排序",
+  "gold_tables": [
+    "shipments"
+  ]
+}
+{
+  "id": "ec-011",
+  "db_id": "ecommerce",
+  "question": "统计每个供应商供应的商品数量，返回商品数最多的前 3 个供应商的名称和商品数两列，按商品数降序；商品数相同时按供应商编号升序。",
+  "question_type": "aggregation",
+  "difficulty": 3,
+  "gold_sql": "SELECT s.name, COUNT(p.product_id) FROM suppliers s LEFT JOIN products p ON s.supplier_id=p.supplier_id GROUP BY s.name ORDER BY COUNT(p.product_id) DESC, s.supplier_id LIMIT 3;",
+  "gold_result": [
+    [
+      "供应商H",
+      17
+    ],
+    [
+      "供应商O",
+      17
+    ],
+    [
+      "供应商P",
+      14
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "并列失分点：商品数17有两个供应商并列，模型漏写次级排序键 supplier_id 时并列行顺序不稳定（压 headroom，实际难度6）；LEFT JOIN + 聚合 + Top-N + 次级排序键",
+  "gold_tables": [
+    "products",
+    "suppliers"
+  ]
+}
+{
+  "id": "ec-012",
+  "db_id": "ecommerce",
+  "question": "计算每个支付方式（method）的成交额占全库总 GMV 的百分比，返回支付方式和百分比数值（保留两位小数）两列，按占比降序。",
+  "question_type": "aggregation",
+  "difficulty": 3,
+  "gold_sql": "SELECT pm.method, ROUND(100.0*SUM(pm.amount)/(SELECT SUM(p2.amount) FROM payments p2 JOIN orders o2 ON p2.order_id=o2.order_id WHERE o2.status IN (\"paid\",\"shipped\",\"completed\")),2) FROM payments pm JOIN orders o ON pm.order_id=o.order_id WHERE o.status IN (\"paid\",\"shipped\",\"completed\") GROUP BY pm.method ORDER BY 2 DESC;",
+  "gold_result": [
+    [
+      "card",
+      34.58
+    ],
+    [
+      "alipay",
+      33.18
+    ],
+    [
+      "wechat",
+      32.24
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "占比计算 + 相关子查询分母 + 成交口径（实际难度6）；模型易算错分母或漏 join 成交过滤",
+  "gold_tables": [
+    "orders",
+    "payments"
+  ]
+}
+{
+  "id": "ec-013",
+  "db_id": "ecommerce",
+  "question": "统计每个商品被购买的总数量（order_items 的 quantity 求和），返回总量最多的前 10 个商品（商品编号和总量），按总量降序；总量相同时按商品编号升序。",
+  "question_type": "aggregation",
+  "difficulty": 3,
+  "gold_sql": "SELECT product_id, SUM(quantity) FROM order_items GROUP BY product_id ORDER BY SUM(quantity) DESC, product_id LIMIT 10;",
+  "gold_result": [
+    [
+      104,
+      112
+    ],
+    [
+      46,
+      109
+    ],
+    [
+      81,
+      108
+    ],
+    [
+      119,
+      107
+    ],
+    [
+      7,
+      104
+    ],
+    [
+      105,
+      103
+    ],
+    [
+      103,
+      99
+    ],
+    [
+      36,
+      98
+    ],
+    [
+      179,
+      97
+    ],
+    [
+      192,
+      97
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "并列失分点（实际难度5）：销量97有两个商品并列（product_id 179/192），漏写次级键时并列行顺序反转",
+  "gold_tables": [
+    "order_items"
+  ]
+}
+{
+  "id": "ec-014",
   "db_id": "ecommerce",
   "question": "列出成交订单中下单金额（payments.amount）最高的前 50 笔，返回订单编号、用户名、支付金额三列，按金额降序。",
   "question_type": "join",
@@ -2633,1865 +1092,7 @@
   ]
 }
 {
-  "id": "ec-024",
-  "db_id": "ecommerce",
-  "question": "列出每个商品及其所属分类，返回商品名称和分类名称两列，按商品编号升序。",
-  "question_type": "join",
-  "difficulty": 2,
-  "gold_sql": "SELECT p.name, c.name FROM products p JOIN categories c ON p.category_id=c.category_id ORDER BY p.product_id;",
-  "gold_result": [
-    [
-      "商品001",
-      "洗衣机"
-    ],
-    [
-      "商品002",
-      "手机"
-    ],
-    [
-      "商品003",
-      "耳机"
-    ],
-    [
-      "商品004",
-      "女装"
-    ],
-    [
-      "商品005",
-      "手机"
-    ],
-    [
-      "商品006",
-      "服饰"
-    ],
-    [
-      "商品007",
-      "家电"
-    ],
-    [
-      "商品008",
-      "洗衣机"
-    ],
-    [
-      "商品009",
-      "数码"
-    ],
-    [
-      "商品010",
-      "家电"
-    ],
-    [
-      "商品011",
-      "数码"
-    ],
-    [
-      "商品012",
-      "洗衣机"
-    ],
-    [
-      "商品013",
-      "手机"
-    ],
-    [
-      "商品014",
-      "耳机"
-    ],
-    [
-      "商品015",
-      "冰箱"
-    ],
-    [
-      "商品016",
-      "冰箱"
-    ],
-    [
-      "商品017",
-      "服饰"
-    ],
-    [
-      "商品018",
-      "耳机"
-    ],
-    [
-      "商品019",
-      "服饰"
-    ],
-    [
-      "商品020",
-      "数码"
-    ],
-    [
-      "商品021",
-      "洗衣机"
-    ],
-    [
-      "商品022",
-      "洗衣机"
-    ],
-    [
-      "商品023",
-      "洗衣机"
-    ],
-    [
-      "商品024",
-      "男装"
-    ],
-    [
-      "商品025",
-      "耳机"
-    ],
-    [
-      "商品026",
-      "数码"
-    ],
-    [
-      "商品027",
-      "洗衣机"
-    ],
-    [
-      "商品028",
-      "洗衣机"
-    ],
-    [
-      "商品029",
-      "冰箱"
-    ],
-    [
-      "商品030",
-      "冰箱"
-    ],
-    [
-      "商品031",
-      "手机"
-    ],
-    [
-      "商品032",
-      "数码"
-    ],
-    [
-      "商品033",
-      "女装"
-    ],
-    [
-      "商品034",
-      "冰箱"
-    ],
-    [
-      "商品035",
-      "数码"
-    ],
-    [
-      "商品036",
-      "家电"
-    ],
-    [
-      "商品037",
-      "手机"
-    ],
-    [
-      "商品038",
-      "女装"
-    ],
-    [
-      "商品039",
-      "洗衣机"
-    ],
-    [
-      "商品040",
-      "冰箱"
-    ],
-    [
-      "商品041",
-      "女装"
-    ],
-    [
-      "商品042",
-      "男装"
-    ],
-    [
-      "商品043",
-      "冰箱"
-    ],
-    [
-      "商品044",
-      "手机"
-    ],
-    [
-      "商品045",
-      "女装"
-    ],
-    [
-      "商品046",
-      "洗衣机"
-    ],
-    [
-      "商品047",
-      "冰箱"
-    ],
-    [
-      "商品048",
-      "手机"
-    ],
-    [
-      "商品049",
-      "冰箱"
-    ],
-    [
-      "商品050",
-      "男装"
-    ],
-    [
-      "商品051",
-      "冰箱"
-    ],
-    [
-      "商品052",
-      "女装"
-    ],
-    [
-      "商品053",
-      "女装"
-    ],
-    [
-      "商品054",
-      "家电"
-    ],
-    [
-      "商品055",
-      "洗衣机"
-    ],
-    [
-      "商品056",
-      "手机"
-    ],
-    [
-      "商品057",
-      "数码"
-    ],
-    [
-      "商品058",
-      "冰箱"
-    ],
-    [
-      "商品059",
-      "男装"
-    ],
-    [
-      "商品060",
-      "女装"
-    ],
-    [
-      "商品061",
-      "数码"
-    ],
-    [
-      "商品062",
-      "女装"
-    ],
-    [
-      "商品063",
-      "洗衣机"
-    ],
-    [
-      "商品064",
-      "家电"
-    ],
-    [
-      "商品065",
-      "手机"
-    ],
-    [
-      "商品066",
-      "冰箱"
-    ],
-    [
-      "商品067",
-      "家电"
-    ],
-    [
-      "商品068",
-      "男装"
-    ],
-    [
-      "商品069",
-      "手机"
-    ],
-    [
-      "商品070",
-      "家电"
-    ],
-    [
-      "商品071",
-      "洗衣机"
-    ],
-    [
-      "商品072",
-      "数码"
-    ],
-    [
-      "商品073",
-      "家电"
-    ],
-    [
-      "商品074",
-      "冰箱"
-    ],
-    [
-      "商品075",
-      "家电"
-    ],
-    [
-      "商品076",
-      "手机"
-    ],
-    [
-      "商品077",
-      "男装"
-    ],
-    [
-      "商品078",
-      "家电"
-    ],
-    [
-      "商品079",
-      "数码"
-    ],
-    [
-      "商品080",
-      "冰箱"
-    ],
-    [
-      "商品081",
-      "服饰"
-    ],
-    [
-      "商品082",
-      "耳机"
-    ],
-    [
-      "商品083",
-      "洗衣机"
-    ],
-    [
-      "商品084",
-      "服饰"
-    ],
-    [
-      "商品085",
-      "冰箱"
-    ],
-    [
-      "商品086",
-      "手机"
-    ],
-    [
-      "商品087",
-      "洗衣机"
-    ],
-    [
-      "商品088",
-      "耳机"
-    ],
-    [
-      "商品089",
-      "冰箱"
-    ],
-    [
-      "商品090",
-      "洗衣机"
-    ],
-    [
-      "商品091",
-      "洗衣机"
-    ],
-    [
-      "商品092",
-      "耳机"
-    ],
-    [
-      "商品093",
-      "家电"
-    ],
-    [
-      "商品094",
-      "服饰"
-    ],
-    [
-      "商品095",
-      "家电"
-    ],
-    [
-      "商品096",
-      "耳机"
-    ],
-    [
-      "商品097",
-      "耳机"
-    ],
-    [
-      "商品098",
-      "服饰"
-    ],
-    [
-      "商品099",
-      "女装"
-    ],
-    [
-      "商品100",
-      "数码"
-    ],
-    [
-      "商品101",
-      "家电"
-    ],
-    [
-      "商品102",
-      "冰箱"
-    ],
-    [
-      "商品103",
-      "洗衣机"
-    ],
-    [
-      "商品104",
-      "女装"
-    ],
-    [
-      "商品105",
-      "服饰"
-    ],
-    [
-      "商品106",
-      "耳机"
-    ],
-    [
-      "商品107",
-      "服饰"
-    ],
-    [
-      "商品108",
-      "耳机"
-    ],
-    [
-      "商品109",
-      "家电"
-    ],
-    [
-      "商品110",
-      "手机"
-    ],
-    [
-      "商品111",
-      "手机"
-    ],
-    [
-      "商品112",
-      "耳机"
-    ],
-    [
-      "商品113",
-      "冰箱"
-    ],
-    [
-      "商品114",
-      "冰箱"
-    ],
-    [
-      "商品115",
-      "服饰"
-    ],
-    [
-      "商品116",
-      "手机"
-    ],
-    [
-      "商品117",
-      "洗衣机"
-    ],
-    [
-      "商品118",
-      "男装"
-    ],
-    [
-      "商品119",
-      "冰箱"
-    ],
-    [
-      "商品120",
-      "洗衣机"
-    ],
-    [
-      "商品121",
-      "手机"
-    ],
-    [
-      "商品122",
-      "服饰"
-    ],
-    [
-      "商品123",
-      "男装"
-    ],
-    [
-      "商品124",
-      "耳机"
-    ],
-    [
-      "商品125",
-      "洗衣机"
-    ],
-    [
-      "商品126",
-      "耳机"
-    ],
-    [
-      "商品127",
-      "服饰"
-    ],
-    [
-      "商品128",
-      "家电"
-    ],
-    [
-      "商品129",
-      "男装"
-    ],
-    [
-      "商品130",
-      "女装"
-    ],
-    [
-      "商品131",
-      "冰箱"
-    ],
-    [
-      "商品132",
-      "家电"
-    ],
-    [
-      "商品133",
-      "冰箱"
-    ],
-    [
-      "商品134",
-      "数码"
-    ],
-    [
-      "商品135",
-      "洗衣机"
-    ],
-    [
-      "商品136",
-      "洗衣机"
-    ],
-    [
-      "商品137",
-      "耳机"
-    ],
-    [
-      "商品138",
-      "女装"
-    ],
-    [
-      "商品139",
-      "手机"
-    ],
-    [
-      "商品140",
-      "男装"
-    ],
-    [
-      "商品141",
-      "服饰"
-    ],
-    [
-      "商品142",
-      "男装"
-    ],
-    [
-      "商品143",
-      "家电"
-    ],
-    [
-      "商品144",
-      "服饰"
-    ],
-    [
-      "商品145",
-      "男装"
-    ],
-    [
-      "商品146",
-      "冰箱"
-    ],
-    [
-      "商品147",
-      "男装"
-    ],
-    [
-      "商品148",
-      "数码"
-    ],
-    [
-      "商品149",
-      "冰箱"
-    ],
-    [
-      "商品150",
-      "服饰"
-    ],
-    [
-      "商品151",
-      "女装"
-    ],
-    [
-      "商品152",
-      "洗衣机"
-    ],
-    [
-      "商品153",
-      "洗衣机"
-    ],
-    [
-      "商品154",
-      "洗衣机"
-    ],
-    [
-      "商品155",
-      "手机"
-    ],
-    [
-      "商品156",
-      "洗衣机"
-    ],
-    [
-      "商品157",
-      "手机"
-    ],
-    [
-      "商品158",
-      "家电"
-    ],
-    [
-      "商品159",
-      "女装"
-    ],
-    [
-      "商品160",
-      "手机"
-    ],
-    [
-      "商品161",
-      "男装"
-    ],
-    [
-      "商品162",
-      "冰箱"
-    ],
-    [
-      "商品163",
-      "洗衣机"
-    ],
-    [
-      "商品164",
-      "冰箱"
-    ],
-    [
-      "商品165",
-      "耳机"
-    ],
-    [
-      "商品166",
-      "服饰"
-    ],
-    [
-      "商品167",
-      "耳机"
-    ],
-    [
-      "商品168",
-      "服饰"
-    ],
-    [
-      "商品169",
-      "服饰"
-    ],
-    [
-      "商品170",
-      "服饰"
-    ],
-    [
-      "商品171",
-      "服饰"
-    ],
-    [
-      "商品172",
-      "耳机"
-    ],
-    [
-      "商品173",
-      "男装"
-    ],
-    [
-      "商品174",
-      "冰箱"
-    ],
-    [
-      "商品175",
-      "手机"
-    ],
-    [
-      "商品176",
-      "女装"
-    ],
-    [
-      "商品177",
-      "男装"
-    ],
-    [
-      "商品178",
-      "男装"
-    ],
-    [
-      "商品179",
-      "数码"
-    ],
-    [
-      "商品180",
-      "耳机"
-    ],
-    [
-      "商品181",
-      "服饰"
-    ],
-    [
-      "商品182",
-      "男装"
-    ],
-    [
-      "商品183",
-      "家电"
-    ],
-    [
-      "商品184",
-      "冰箱"
-    ],
-    [
-      "商品185",
-      "数码"
-    ],
-    [
-      "商品186",
-      "洗衣机"
-    ],
-    [
-      "商品187",
-      "手机"
-    ],
-    [
-      "商品188",
-      "数码"
-    ],
-    [
-      "商品189",
-      "家电"
-    ],
-    [
-      "商品190",
-      "家电"
-    ],
-    [
-      "商品191",
-      "冰箱"
-    ],
-    [
-      "商品192",
-      "服饰"
-    ],
-    [
-      "商品193",
-      "手机"
-    ],
-    [
-      "商品194",
-      "冰箱"
-    ],
-    [
-      "商品195",
-      "女装"
-    ],
-    [
-      "商品196",
-      "耳机"
-    ],
-    [
-      "商品197",
-      "女装"
-    ],
-    [
-      "商品198",
-      "洗衣机"
-    ],
-    [
-      "商品199",
-      "服饰"
-    ],
-    [
-      "商品200",
-      "冰箱"
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "两表 join；写死两列",
-  "gold_tables": [
-    "categories",
-    "products"
-  ]
-}
-{
-  "id": "ec-025",
-  "db_id": "ecommerce",
-  "question": "列出每个商品及其供应商，返回商品名称、供应商名称、供应商国家三列，按商品编号升序。",
-  "question_type": "join",
-  "difficulty": 2,
-  "gold_sql": "SELECT p.name, s.name, s.country FROM products p JOIN suppliers s ON p.supplier_id=s.supplier_id ORDER BY p.product_id;",
-  "gold_result": [
-    [
-      "商品001",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品002",
-      "供应商A",
-      "中国"
-    ],
-    [
-      "商品003",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品004",
-      "供应商N",
-      "马来西亚"
-    ],
-    [
-      "商品005",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品006",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品007",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品008",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品009",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品010",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品011",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品012",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品013",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品014",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品015",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品016",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品017",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品018",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品019",
-      "供应商N",
-      "马来西亚"
-    ],
-    [
-      "商品020",
-      "供应商L",
-      "马来西亚"
-    ],
-    [
-      "商品021",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品022",
-      "供应商N",
-      "马来西亚"
-    ],
-    [
-      "商品023",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品024",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品025",
-      "供应商E",
-      "越南"
-    ],
-    [
-      "商品026",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品027",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品028",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品029",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品030",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品031",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品032",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品033",
-      "供应商G",
-      "越南"
-    ],
-    [
-      "商品034",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品035",
-      "供应商G",
-      "越南"
-    ],
-    [
-      "商品036",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品037",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品038",
-      "供应商K",
-      "中国"
-    ],
-    [
-      "商品039",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品040",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品041",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品042",
-      "供应商K",
-      "中国"
-    ],
-    [
-      "商品043",
-      "供应商K",
-      "中国"
-    ],
-    [
-      "商品044",
-      "供应商E",
-      "越南"
-    ],
-    [
-      "商品045",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品046",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品047",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品048",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品049",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品050",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品051",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品052",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品053",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品054",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品055",
-      "供应商E",
-      "越南"
-    ],
-    [
-      "商品056",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品057",
-      "供应商G",
-      "越南"
-    ],
-    [
-      "商品058",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品059",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品060",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品061",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品062",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品063",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品064",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品065",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品066",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品067",
-      "供应商L",
-      "马来西亚"
-    ],
-    [
-      "商品068",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品069",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品070",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品071",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品072",
-      "供应商A",
-      "中国"
-    ],
-    [
-      "商品073",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品074",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品075",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品076",
-      "供应商G",
-      "越南"
-    ],
-    [
-      "商品077",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品078",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品079",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品080",
-      "供应商A",
-      "中国"
-    ],
-    [
-      "商品081",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品082",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品083",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品084",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品085",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品086",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品087",
-      "供应商K",
-      "中国"
-    ],
-    [
-      "商品088",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品089",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品090",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品091",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品092",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品093",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品094",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品095",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品096",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品097",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品098",
-      "供应商N",
-      "马来西亚"
-    ],
-    [
-      "商品099",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品100",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品101",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品102",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品103",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品104",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品105",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品106",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品107",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品108",
-      "供应商N",
-      "马来西亚"
-    ],
-    [
-      "商品109",
-      "供应商L",
-      "马来西亚"
-    ],
-    [
-      "商品110",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品111",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品112",
-      "供应商A",
-      "中国"
-    ],
-    [
-      "商品113",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品114",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品115",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品116",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品117",
-      "供应商K",
-      "中国"
-    ],
-    [
-      "商品118",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品119",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品120",
-      "供应商L",
-      "马来西亚"
-    ],
-    [
-      "商品121",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品122",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品123",
-      "供应商G",
-      "越南"
-    ],
-    [
-      "商品124",
-      "供应商C",
-      "马来西亚"
-    ],
-    [
-      "商品125",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品126",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品127",
-      "供应商N",
-      "马来西亚"
-    ],
-    [
-      "商品128",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品129",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品130",
-      "供应商N",
-      "马来西亚"
-    ],
-    [
-      "商品131",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品132",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品133",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品134",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品135",
-      "供应商K",
-      "中国"
-    ],
-    [
-      "商品136",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品137",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品138",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品139",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品140",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品141",
-      "供应商L",
-      "马来西亚"
-    ],
-    [
-      "商品142",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品143",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品144",
-      "供应商L",
-      "马来西亚"
-    ],
-    [
-      "商品145",
-      "供应商G",
-      "越南"
-    ],
-    [
-      "商品146",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品147",
-      "供应商K",
-      "中国"
-    ],
-    [
-      "商品148",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品149",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品150",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品151",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品152",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品153",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品154",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品155",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品156",
-      "供应商A",
-      "中国"
-    ],
-    [
-      "商品157",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品158",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品159",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品160",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品161",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品162",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品163",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品164",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品165",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品166",
-      "供应商K",
-      "中国"
-    ],
-    [
-      "商品167",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品168",
-      "供应商Q",
-      "越南"
-    ],
-    [
-      "商品169",
-      "供应商S",
-      "中国"
-    ],
-    [
-      "商品170",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品171",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品172",
-      "供应商E",
-      "越南"
-    ],
-    [
-      "商品173",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品174",
-      "供应商A",
-      "中国"
-    ],
-    [
-      "商品175",
-      "供应商M",
-      "马来西亚"
-    ],
-    [
-      "商品176",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品177",
-      "供应商N",
-      "马来西亚"
-    ],
-    [
-      "商品178",
-      "供应商P",
-      "马来西亚"
-    ],
-    [
-      "商品179",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品180",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品181",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品182",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品183",
-      "供应商I",
-      "越南"
-    ],
-    [
-      "商品184",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品185",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品186",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品187",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品188",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品189",
-      "供应商O",
-      "中国"
-    ],
-    [
-      "商品190",
-      "供应商H",
-      "越南"
-    ],
-    [
-      "商品191",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品192",
-      "供应商T",
-      "马来西亚"
-    ],
-    [
-      "商品193",
-      "供应商G",
-      "越南"
-    ],
-    [
-      "商品194",
-      "供应商R",
-      "中国"
-    ],
-    [
-      "商品195",
-      "供应商F",
-      "越南"
-    ],
-    [
-      "商品196",
-      "供应商J",
-      "越南"
-    ],
-    [
-      "商品197",
-      "供应商D",
-      "马来西亚"
-    ],
-    [
-      "商品198",
-      "供应商B",
-      "马来西亚"
-    ],
-    [
-      "商品199",
-      "供应商E",
-      "越南"
-    ],
-    [
-      "商品200",
-      "供应商H",
-      "越南"
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "两表 join；写死三列",
-  "gold_tables": [
-    "products",
-    "suppliers"
-  ]
-}
-{
-  "id": "ec-026",
-  "db_id": "ecommerce",
-  "question": "查询订单编号为 100 的订单，返回该订单包含的商品名称和数量两列，按商品编号升序。",
-  "question_type": "join",
-  "difficulty": 3,
-  "gold_sql": "SELECT p.name, oi.quantity FROM order_items oi JOIN products p ON oi.product_id=p.product_id WHERE oi.order_id=100 ORDER BY oi.product_id;",
-  "gold_result": [
-    [
-      "商品137",
-      1
-    ]
-  ],
-  "expected_behavior": "answer",
-  "ambiguous": false,
-  "order_sensitive": true,
-  "notes": "两表 join + 单订单过滤",
-  "gold_tables": [
-    "order_items",
-    "products"
-  ]
-}
-{
-  "id": "ec-027",
+  "id": "ec-015",
   "db_id": "ecommerce",
   "question": "统计每个支付方式（method）的成交总金额，返回支付方式和总金额两列，按总金额降序。",
   "question_type": "join",
@@ -4521,7 +1122,7 @@
   ]
 }
 {
-  "id": "ec-028",
+  "id": "ec-016",
   "db_id": "ecommerce",
   "question": "统计每个承运商（carrier）承运的订单数量，返回承运商和订单数两列，按订单数降序。",
   "question_type": "join",
@@ -4550,7 +1151,7 @@
   ]
 }
 {
-  "id": "ec-029",
+  "id": "ec-017",
   "db_id": "ecommerce",
   "question": "查询评分（rating）为 5 的评价，返回对应商品名称和评价内容两列，取前 50 条，按评价编号升序。",
   "question_type": "join",
@@ -4768,156 +1369,46 @@
   ]
 }
 {
-  "id": "ec-030",
+  "id": "ec-018",
   "db_id": "ecommerce",
-  "question": "列出使用过优惠券的订单中支付金额最高的前 50 个，返回订单编号、优惠券编码、折扣率三列，按订单编号升序。",
+  "question": "列出使用过优惠券的订单中支付金额最高的前 50 个，返回订单编号、优惠券编码、折扣率三列，按支付金额降序；金额相同时按订单编号升序。",
   "question_type": "join",
   "difficulty": 3,
-  "gold_sql": "SELECT o.order_id, c.code, c.discount_pct FROM orders o JOIN coupons c ON o.coupon_id=c.coupon_id WHERE o.coupon_id IS NOT NULL ORDER BY o.order_id LIMIT 50;",
+  "gold_sql": "SELECT o.order_id, c.code, c.discount_pct FROM orders o JOIN coupons c ON o.coupon_id=c.coupon_id JOIN payments p ON o.order_id=p.order_id WHERE o.coupon_id IS NOT NULL ORDER BY p.amount DESC, o.order_id LIMIT 50;",
   "gold_result": [
     [
-      19,
-      "CP020",
-      15.0
-    ],
-    [
-      22,
-      "CP018",
-      20.0
-    ],
-    [
-      27,
-      "CP009",
-      15.0
-    ],
-    [
-      30,
-      "CP027",
-      5.0
-    ],
-    [
-      32,
-      "CP022",
-      15.0
-    ],
-    [
-      37,
-      "CP019",
-      15.0
-    ],
-    [
-      48,
-      "CP003",
-      5.0
-    ],
-    [
-      58,
-      "CP024",
-      5.0
-    ],
-    [
-      59,
-      "CP010",
-      20.0
-    ],
-    [
-      66,
-      "CP004",
-      5.0
-    ],
-    [
-      68,
+      815,
       "CP021",
       5.0
     ],
     [
-      71,
-      "CP009",
-      15.0
-    ],
-    [
-      78,
-      "CP006",
+      1469,
+      "CP025",
       10.0
     ],
     [
-      79,
-      "CP014",
-      20.0
-    ],
-    [
-      86,
-      "CP005",
+      2553,
+      "CP007",
       5.0
     ],
     [
-      91,
-      "CP002",
-      10.0
+      2929,
+      "CP029",
+      5.0
     ],
     [
-      111,
-      "CP019",
-      15.0
-    ],
-    [
-      115,
+      1748,
       "CP017",
       10.0
     ],
     [
-      120,
-      "CP009",
-      15.0
-    ],
-    [
-      123,
-      "CP016",
-      15.0
-    ],
-    [
-      127,
-      "CP014",
-      20.0
-    ],
-    [
-      131,
-      "CP030",
-      20.0
-    ],
-    [
-      139,
-      "CP022",
-      15.0
-    ],
-    [
-      141,
-      "CP030",
-      20.0
-    ],
-    [
-      143,
-      "CP012",
+      524,
+      "CP015",
       10.0
     ],
     [
-      147,
-      "CP014",
-      20.0
-    ],
-    [
-      148,
-      "CP027",
-      5.0
-    ],
-    [
-      149,
-      "CP028",
-      20.0
-    ],
-    [
-      152,
-      "CP001",
+      2552,
+      "CP023",
       5.0
     ],
     [
@@ -4926,49 +1417,54 @@
       5.0
     ],
     [
-      159,
+      2842,
+      "CP015",
+      10.0
+    ],
+    [
+      838,
+      "CP022",
+      15.0
+    ],
+    [
+      2312,
+      "CP021",
+      5.0
+    ],
+    [
+      828,
       "CP024",
       5.0
     ],
     [
-      167,
-      "CP029",
+      1863,
+      "CP024",
       5.0
     ],
     [
-      168,
-      "CP026",
-      10.0
-    ],
-    [
-      187,
-      "CP025",
-      10.0
-    ],
-    [
-      195,
-      "CP007",
-      5.0
-    ],
-    [
-      220,
-      "CP014",
-      20.0
-    ],
-    [
-      227,
-      "CP010",
-      20.0
-    ],
-    [
-      231,
-      "CP029",
-      5.0
-    ],
-    [
-      233,
+      533,
       "CP013",
       5.0
+    ],
+    [
+      66,
+      "CP004",
+      5.0
+    ],
+    [
+      2575,
+      "CP024",
+      5.0
+    ],
+    [
+      2984,
+      "CP002",
+      10.0
+    ],
+    [
+      2137,
+      "CP008",
+      20.0
     ],
     [
       240,
@@ -4976,9 +1472,34 @@
       20.0
     ],
     [
-      241,
-      "CP004",
+      1498,
+      "CP027",
       5.0
+    ],
+    [
+      2333,
+      "CP012",
+      10.0
+    ],
+    [
+      1648,
+      "CP011",
+      10.0
+    ],
+    [
+      718,
+      "CP023",
+      5.0
+    ],
+    [
+      1983,
+      "CP011",
+      10.0
+    ],
+    [
+      2498,
+      "CP028",
+      20.0
     ],
     [
       243,
@@ -4986,42 +1507,122 @@
       5.0
     ],
     [
-      246,
-      "CP018",
-      20.0
-    ],
-    [
-      252,
-      "CP020",
-      15.0
-    ],
-    [
-      254,
-      "CP024",
+      2027,
+      "CP005",
       5.0
     ],
     [
-      267,
+      1032,
+      "CP017",
+      10.0
+    ],
+    [
+      1416,
+      "CP025",
+      10.0
+    ],
+    [
+      78,
+      "CP006",
+      10.0
+    ],
+    [
+      481,
+      "CP019",
+      15.0
+    ],
+    [
+      919,
+      "CP030",
+      20.0
+    ],
+    [
+      288,
+      "CP012",
+      10.0
+    ],
+    [
+      2380,
+      "CP015",
+      10.0
+    ],
+    [
+      425,
+      "CP026",
+      10.0
+    ],
+    [
+      1199,
+      "CP025",
+      10.0
+    ],
+    [
+      1150,
       "CP004",
       5.0
     ],
     [
-      268,
-      "CP020",
-      15.0
-    ],
-    [
-      272,
-      "CP002",
+      831,
+      "CP025",
       10.0
     ],
     [
-      276,
-      "CP023",
+      147,
+      "CP014",
+      20.0
+    ],
+    [
+      2223,
+      "CP030",
+      20.0
+    ],
+    [
+      1912,
+      "CP025",
+      10.0
+    ],
+    [
+      2944,
+      "CP004",
       5.0
     ],
     [
-      278,
+      856,
+      "CP029",
+      5.0
+    ],
+    [
+      1439,
+      "CP025",
+      10.0
+    ],
+    [
+      1448,
+      "CP007",
+      5.0
+    ],
+    [
+      1281,
+      "CP007",
+      5.0
+    ],
+    [
+      2695,
+      "CP027",
+      5.0
+    ],
+    [
+      2643,
+      "CP019",
+      15.0
+    ],
+    [
+      30,
+      "CP027",
+      5.0
+    ],
+    [
+      1649,
       "CP026",
       10.0
     ]
@@ -5029,14 +1630,15 @@
   "expected_behavior": "answer",
   "ambiguous": false,
   "order_sensitive": true,
-  "notes": "两表 join + 非空过滤 + LIMIT",
+  "notes": "三表 join（orders-coupons-payments）+ 金额降序 + 次级排序键；修复了题面与gold矛盾（原先按order_id升序与题面\"金额最高\"不符）",
   "gold_tables": [
     "coupons",
-    "orders"
+    "orders",
+    "payments"
   ]
 }
 {
-  "id": "ec-031",
+  "id": "ec-019",
   "db_id": "ecommerce",
   "question": "查询每个二级分类（parent_id 非空），返回二级分类名称和其父分类名称两列，按二级分类编号升序。",
   "question_type": "join",
@@ -5077,7 +1679,7 @@
   ]
 }
 {
-  "id": "ec-032",
+  "id": "ec-020",
   "db_id": "ecommerce",
   "question": "统计每个城市的成交总金额（GMV 口径），返回城市和总金额两列，按总金额降序。",
   "question_type": "join",
@@ -5120,7 +1722,7 @@
   ]
 }
 {
-  "id": "ec-033",
+  "id": "ec-021",
   "db_id": "ecommerce",
   "question": "查询每个商品的名称、分类名称、供应商名称三列，按商品编号升序。",
   "question_type": "join",
@@ -6139,7 +2741,7 @@
   ]
 }
 {
-  "id": "ec-034",
+  "id": "ec-022",
   "db_id": "ecommerce",
   "question": "查询还没有签收（delivered_at 为空的）物流记录，返回订单编号、承运商、发货时间三列，取前 50 条，按订单编号升序。",
   "question_type": "join",
@@ -6406,7 +3008,7 @@
   ]
 }
 {
-  "id": "ec-035",
+  "id": "ec-023",
   "db_id": "ecommerce",
   "question": "查询下过订单、但所有订单都处于取消（cancelled）或退款（refunded）状态的用户名，按用户编号升序。",
   "question_type": "nested",
@@ -6439,7 +3041,7 @@
   ]
 }
 {
-  "id": "ec-036",
+  "id": "ec-024",
   "db_id": "ecommerce",
   "question": "查询从未获得过 5 星评价的商品名称，按商品编号升序。",
   "question_type": "nested",
@@ -6637,7 +3239,7 @@
   ]
 }
 {
-  "id": "ec-037",
+  "id": "ec-025",
   "db_id": "ecommerce",
   "question": "查询现价高于其所属分类平均价格的商品，返回商品名称和现价两列，按商品编号升序。",
   "question_type": "nested",
@@ -7054,7 +3656,7 @@
   ]
 }
 {
-  "id": "ec-038",
+  "id": "ec-026",
   "db_id": "ecommerce",
   "question": "查询用户名以 'user0' 开头且下过订单的用户名（去重），取前 50 个，按用户名升序。",
   "question_type": "nested",
@@ -7222,7 +3824,7 @@
   ]
 }
 {
-  "id": "ec-039",
+  "id": "ec-027",
   "db_id": "ecommerce",
   "question": "用 WITH 找出成交订单数最多的一名用户，返回用户编号和成交订单数两列。",
   "question_type": "nested",
@@ -7243,7 +3845,7 @@
   ]
 }
 {
-  "id": "ec-040",
+  "id": "ec-028",
   "db_id": "ecommerce",
   "question": "用 WITH 统计每个城市的成交订单数，返回成交订单数最多的城市及其订单数两列。",
   "question_type": "nested",
@@ -7265,7 +3867,7 @@
   ]
 }
 {
-  "id": "ec-041",
+  "id": "ec-029",
   "db_id": "ecommerce",
   "question": "查询每个分类中现价最高的商品，返回商品名称和现价两列，按分类编号升序。",
   "question_type": "nested",
@@ -7318,7 +3920,7 @@
   ]
 }
 {
-  "id": "ec-042",
+  "id": "ec-030",
   "db_id": "ecommerce",
   "question": "查询存在至少一条 5 星评价的商品名称，按商品编号升序。",
   "question_type": "nested",
@@ -7756,7 +4358,7 @@
   ]
 }
 {
-  "id": "ec-043",
+  "id": "ec-031",
   "db_id": "ecommerce",
   "question": "用 WITH 计算每个用户的成交总额，返回累计消费最高的前 5 名用户（用户名和累计金额），按金额降序。",
   "question_type": "nested",
@@ -7792,6 +4394,389 @@
     "orders",
     "payments",
     "users"
+  ]
+}
+{
+  "id": "ec-032",
+  "db_id": "ecommerce",
+  "question": "按时间顺序列出用户编号为 1 的用户每一笔成交订单的累计支付金额。返回三列：订单编号（order_id）、下单时间（created_at）、截至该订单的累计成交金额（按时间累计，保留两位小数），按下单时间升序。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT order_id, created_at, ROUND(SUM(amount) OVER (ORDER BY created_at, order_id),2) AS running_total FROM (SELECT o.order_id, o.created_at, p.amount FROM orders o JOIN payments p ON o.order_id=p.order_id WHERE o.status IN ('paid','shipped','completed') AND o.user_id=1) ORDER BY created_at, order_id;",
+  "gold_result": [
+    [
+      1410,
+      "2024-02-26",
+      2639.56
+    ],
+    [
+      533,
+      "2024-10-18",
+      8320.08
+    ],
+    [
+      1127,
+      "2025-10-07",
+      10080.42
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "窗口函数 SUM OVER 运行总和（实际难度5）；成交口径 + 子查询 + 写死三列输出",
+  "gold_tables": [
+    "orders",
+    "payments"
+  ]
+}
+{
+  "id": "ec-033",
+  "db_id": "ecommerce",
+  "question": "找出每个用户的第一笔成交订单（按时间最早），返回首笔订单金额最高的前 5 名用户的用户名和首笔金额，按金额降序。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT username, first_amt FROM (SELECT u.username, p.amount AS first_amt, ROW_NUMBER() OVER (PARTITION BY o.user_id ORDER BY o.created_at, o.order_id) AS rn FROM orders o JOIN payments p ON o.order_id=p.order_id JOIN users u ON o.user_id=u.user_id WHERE o.status IN ('paid','shipped','completed')) WHERE rn=1 ORDER BY first_amt DESC LIMIT 5;",
+  "gold_result": [
+    [
+      "user355",
+      7019.87
+    ],
+    [
+      "user423",
+      6898.74
+    ],
+    [
+      "user270",
+      6885.17
+    ],
+    [
+      "user209",
+      6537.36
+    ],
+    [
+      "user389",
+      6316.7
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "窗口函数 ROW_NUMBER 取每组首行（实际难度6）；三表 join + 成交口径 + Top-N",
+  "gold_tables": [
+    "orders",
+    "payments",
+    "users"
+  ]
+}
+{
+  "id": "ec-034",
+  "db_id": "ecommerce",
+  "question": "按成交快照口径（order_items.unit_price × quantity）计算每个商品的成交额，用 RANK 排名，返回成交额最高的前 5 个商品的商品编号和成交额（保留两位小数），按排名升序。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT product_id, gmv FROM (SELECT oi.product_id, ROUND(SUM(oi.unit_price*oi.quantity),2) AS gmv, RANK() OVER (ORDER BY SUM(oi.unit_price*oi.quantity) DESC) AS rnk FROM order_items oi JOIN orders o ON oi.order_id=o.order_id WHERE o.status IN ('paid','shipped','completed') GROUP BY oi.product_id) WHERE rnk<=5 ORDER BY rnk;",
+  "gold_result": [
+    [
+      36,
+      71320.86
+    ],
+    [
+      141,
+      69771.1
+    ],
+    [
+      81,
+      68720.1
+    ],
+    [
+      198,
+      68418.33
+    ],
+    [
+      7,
+      67275.65
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "窗口函数 RANK + 聚合（实际难度7）；成交快照口径（陷阱1：必须用 unit_price 而非 products.price）",
+  "gold_tables": [
+    "order_items",
+    "orders"
+  ]
+}
+{
+  "id": "ec-035",
+  "db_id": "ecommerce",
+  "question": "计算每个分类的商品平均价格，用 RANK 按平均价格降序排名，返回分类名、平均价格（保留两位小数）、排名三列，按排名升序。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT name, avg_price, rnk FROM (SELECT c.name, ROUND(AVG(p.price),2) AS avg_price, RANK() OVER (ORDER BY AVG(p.price) DESC) AS rnk FROM products p JOIN categories c ON p.category_id=c.category_id GROUP BY c.name) ORDER BY rnk;",
+  "gold_result": [
+    [
+      "家电",
+      572.25,
+      1
+    ],
+    [
+      "手机",
+      558.46,
+      2
+    ],
+    [
+      "数码",
+      550.64,
+      3
+    ],
+    [
+      "冰箱",
+      541.94,
+      4
+    ],
+    [
+      "耳机",
+      493.87,
+      5
+    ],
+    [
+      "男装",
+      456.81,
+      6
+    ],
+    [
+      "女装",
+      429.6,
+      7
+    ],
+    [
+      "洗衣机",
+      419.77,
+      8
+    ],
+    [
+      "服饰",
+      401.52,
+      9
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "窗口函数 RANK 作用于聚合结果（实际难度6）；join + 聚合 + 窗口 + 写死三列",
+  "gold_tables": [
+    "categories",
+    "products"
+  ]
+}
+{
+  "id": "ec-036",
+  "db_id": "ecommerce",
+  "question": "计算每个成交用户相邻两笔成交订单之间的平均下单间隔天数（全库平均），保留一位小数，返回单个数值。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT ROUND(AVG(gap),1) FROM (SELECT JULIANDAY(o.created_at) - JULIANDAY(LAG(o.created_at) OVER (PARTITION BY o.user_id ORDER BY o.created_at, o.order_id)) AS gap FROM orders o WHERE o.status IN ('paid','shipped','completed')) WHERE gap IS NOT NULL;",
+  "gold_result": [
+    [
+      118.0
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": false,
+  "notes": "窗口函数 LAG + JULIANDAY 日期差 + 聚合（实际难度8）；NULL 处理（首笔无前值）",
+  "gold_tables": [
+    "orders"
+  ]
+}
+{
+  "id": "ec-037",
+  "db_id": "ecommerce",
+  "question": "统计每个用户的成交订单数，用 RANK 按订单数降序排名，返回订单数排名第 1 的用户（若并列取用户编号最小者）的用户编号和订单数。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT user_id, cnt FROM (SELECT user_id, COUNT(*) AS cnt, RANK() OVER (ORDER BY COUNT(*) DESC) AS rnk FROM orders WHERE status IN ('paid','shipped','completed') GROUP BY user_id) WHERE rnk=1 ORDER BY user_id LIMIT 1;",
+  "gold_result": [
+    [
+      310,
+      13
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": false,
+  "notes": "窗口函数 RANK + 聚合 + 并列处理（实际难度6）；成交口径",
+  "gold_tables": [
+    "orders"
+  ]
+}
+{
+  "id": "ec-038",
+  "db_id": "ecommerce",
+  "question": "计算复购用户（成交订单数不少于 2 的用户）的平均客单价，即这些用户各自客单价的平均值，保留两位小数，返回单个数值。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT ROUND(AVG(avg_amt),2) FROM (SELECT o.user_id, AVG(p.amount) AS avg_amt FROM orders o JOIN payments p ON o.order_id=p.order_id WHERE o.status IN (\"paid\",\"shipped\",\"completed\") GROUP BY o.user_id HAVING COUNT(*)>=2);",
+  "gold_result": [
+    [
+      2421.73
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": false,
+  "notes": "双重聚合 + HAVING 口径陷阱（实际难度7）：模型易漏 HAVING 或把分母算成全部用户；成交口径 + 子查询嵌套",
+  "gold_tables": [
+    "orders",
+    "payments"
+  ]
+}
+{
+  "id": "ec-039",
+  "db_id": "ecommerce",
+  "question": "计算每个成交用户相邻两笔成交订单之间的下单间隔天数，返回全库最大的间隔天数（整数），返回单个数值。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT MAX(gap) FROM (SELECT JULIANDAY(o.created_at)-JULIANDAY(LAG(o.created_at) OVER (PARTITION BY o.user_id ORDER BY o.created_at, o.order_id)) AS gap FROM orders o WHERE o.status IN (\"paid\",\"shipped\",\"completed\")) WHERE gap IS NOT NULL;",
+  "gold_result": [
+    [
+      703.0
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": false,
+  "notes": "窗口函数 LAG + JULIANDAY 日期差 + MAX 聚合 + NULL 处理（实际难度8）；首笔无前值需过滤 NULL",
+  "gold_tables": [
+    "orders"
+  ]
+}
+{
+  "id": "ec-040",
+  "db_id": "ecommerce",
+  "question": "统计每个用户通过优惠券兑换中间表（coupon_redemptions）兑换优惠券的次数，返回兑换次数最多的前 5 名用户的用户名和兑换次数两列，按兑换次数降序；次数相同时按用户编号升序。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT u.username, COUNT(*) FROM coupon_redemptions cr JOIN users u ON cr.user_id=u.user_id GROUP BY cr.user_id ORDER BY COUNT(*) DESC, cr.user_id LIMIT 5;",
+  "gold_result": [
+    [
+      "user421",
+      6
+    ],
+    [
+      "user146",
+      4
+    ],
+    [
+      "user255",
+      4
+    ],
+    [
+      "user299",
+      4
+    ],
+    [
+      "user310",
+      4
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "并列失分点（实际难度6）：兑换4次有6人并列，模型漏写次级排序键 user_id 时并列行顺序不稳定；中间表 coupon_redemptions 的 FK 扩展",
+  "gold_tables": [
+    "coupon_redemptions",
+    "users"
+  ]
+}
+{
+  "id": "ec-041",
+  "db_id": "ecommerce",
+  "question": "计算每个用户的成交总额（GMV 口径：仅统计 paid/shipped/completed 订单），返回累计成交额最高的前 5 名用户（用户名和成交额，保留两位小数），按成交额降序；金额相同时按用户编号升序。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT u.username, ROUND(SUM(p.amount),2) FROM users u JOIN orders o ON u.user_id=o.user_id JOIN payments p ON o.order_id=p.order_id WHERE o.status IN (\"paid\",\"shipped\",\"completed\") GROUP BY u.user_id ORDER BY SUM(p.amount) DESC, u.user_id LIMIT 5;",
+  "gold_result": [
+    [
+      "user235",
+      35096.7
+    ],
+    [
+      "user310",
+      34675.4
+    ],
+    [
+      "user268",
+      32178.48
+    ],
+    [
+      "user255",
+      29347.08
+    ],
+    [
+      "user373",
+      28807.07
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "多表 join + 成交口径过滤 + SUM（实际难度6）：模型易漏成交状态过滤或漏 join payments 表，导致金额口径错误",
+  "gold_tables": [
+    "orders",
+    "payments",
+    "users"
+  ]
+}
+{
+  "id": "ec-042",
+  "db_id": "ecommerce",
+  "question": "统计每个一级分类（parent_id 为空）下所有商品（包括其所有子分类下的商品）的总数量，返回分类名称和商品总数两列，按商品总数降序；总数相同时按分类编号升序。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT c1.name, COUNT(p.product_id) FROM categories c1 LEFT JOIN categories c2 ON c2.parent_id=c1.category_id LEFT JOIN products p ON p.category_id=c2.category_id WHERE c1.parent_id IS NULL GROUP BY c1.name ORDER BY COUNT(p.product_id) DESC, c1.category_id;",
+  "gold_result": [
+    [
+      "家电",
+      61
+    ],
+    [
+      "数码",
+      43
+    ],
+    [
+      "服饰",
+      36
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": true,
+  "notes": "分类层级递归陷阱（实际难度7）：一级分类商品需经子分类 JOIN 汇总，模型易误用\"直接商品\"口径（直接=21/16/23 vs 含子分类=61/43/36）或错误递归 CTE",
+  "gold_tables": [
+    "categories",
+    "products"
+  ]
+}
+{
+  "id": "ec-043",
+  "db_id": "ecommerce",
+  "question": "统计成交订单中使用过 2 种及以上不同支付方式（method）的用户数量，返回单个数值。",
+  "question_type": "nested",
+  "difficulty": 3,
+  "gold_sql": "SELECT COUNT(*) FROM (SELECT o.user_id FROM orders o JOIN payments p ON o.order_id=p.order_id WHERE o.status IN (\"paid\",\"shipped\",\"completed\") GROUP BY o.user_id HAVING COUNT(DISTINCT p.method)>=2);",
+  "gold_result": [
+    [
+      437
+    ]
+  ],
+  "expected_behavior": "answer",
+  "ambiguous": false,
+  "order_sensitive": false,
+  "notes": "复杂 HAVING + COUNT(DISTINCT) 口径陷阱（实际难度6）：模型易漏 DISTINCT（把支付方式种类算成支付笔数，437 vs 472）或漏成交状态过滤",
+  "gold_tables": [
+    "orders",
+    "payments"
   ]
 }
 {

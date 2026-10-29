@@ -4,13 +4,12 @@
 import json
 from pathlib import Path
 
-RUNS = [  # (配置, 库, run_id)——与第 3 节的 run_id 一一对应，改了 run_id 这里同步改
-    ("a0", "chinook", "a0_chinook_fix"), ("a0", "sakila", "a0_sakila_fix"),
-    ("a1", "chinook", "a1_chinook_fix"), ("a1", "sakila", "a1_sakila_fix"),
-    ("a2", "chinook", "a2_chinook_v3"), ("a2", "sakila", "a2_sakila_v3"),
-    ("a3", "chinook", "a3_chinook_v2"), ("a3", "sakila", "a3_sakila_v2"),
-    ("a4", "chinook", "a4_chinook"), ("a4", "sakila", "a4_sakila"),
-] + [(c, "ecommerce", f"{c}_ecommerce") for c in ("a0", "a1", "a2", "a3", "a4")]
+RUNS = [
+    (c, db, f"{db}_{c}")
+    for db in ("chinook", "sakila", "ecommerce")
+    for c in ("a0", "a1", "a2", "a3", "a4")
+]
+
 
 FIELDS = [("ex", "EX"), ("ex_first", "首轮EX"), ("repair_gain", "修复增益"),
           ("schema_recall", "召回率"), ("behavior_ok", "行为正确率"),

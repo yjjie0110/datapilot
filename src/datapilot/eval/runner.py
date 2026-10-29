@@ -40,7 +40,7 @@ def prompt_fingerprint() -> str:
         # ② a0–a2 旧报告页眉里的指纹值与新算法产出对不上，属于算法升级而非数据污染。
         from src.datapilot.nodes import diagnoser, gate, repairer, verifier
         parts = [a0.SYSTEM, repairer.REPAIR_SYSTEM, diagnoser.EMPTY_JUDGE,
-                 gate.GATE_SYSTEM, verifier.VERIFY_SYSTEM]
+                 gate.GATE_SYSTEM, gate.GATE_USER, verifier.VERIFY_SYSTEM]
         return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:12]
     except Exception:
         return "na"

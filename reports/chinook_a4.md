@@ -2,9 +2,9 @@
 
 ## 环境
 - 模型：`qwen3.8-flash`  temperature=0.0
-- Prompt 指纹：`a32cc524ca69`
+- Prompt 指纹：`a7d099e8ee30`
 - 数据集：`data\benchmarks\chinook_v0.jsonl`，共 30 题（可判定 24 题）
-- 开始时间：2026-10-29 13:02:54
+- 开始时间：2026-10-29 20:03:30
 
 ## 汇总
 
@@ -13,12 +13,12 @@
 | EX（无序，分母=全部 24 道可判定题） | 95.83% |
 | 排序题 EX（有序，分母=15 道 order_sensitive 题） | 93.33% |
 | Schema 召回率 | 95.83% |
-| 平均输入 token | 2324 |
+| 平均输入 token | 1458 |
 | SQL/执行错误率 | 0.00% |
 | 特殊题行为正确率 | 83.33% |
-| 延迟 P50 / P95 | 20488 / 71628 ms |
-| 单题成本 | ¥0.005803 |
-| 总成本 | ¥0.1741 |
+| 延迟 P50 / P95 | 4452 / 11896 ms |
+| 单题成本 | ¥0.001905 |
+| 总成本 | ¥0.0572 |
 | 平均 LLM 调用次数 | 2.33 |
 | 首轮正确率 | 91.67% |
 | 修复增益 | 4.17% |
@@ -56,7 +56,7 @@
 
 - `ch-008` 期望=refuse 实际=refuse ok=True
 - `ch-007` 期望=clarify 实际=clarify ok=True
-- `ch-027` 期望=clarify 实际=clarify ok=True
-- `ch-028` 期望=clarify 实际=clarify ok=True
-- `ch-030` 期望=refuse 实际=refuse ok=True
 - `ch-029` 期望=clarify 实际=answer ok=False
+- `ch-027` 期望=clarify 实际=clarify ok=True
+- `ch-030` 期望=refuse 实际=refuse ok=True
+- `ch-028` 期望=clarify 实际=clarify ok=True

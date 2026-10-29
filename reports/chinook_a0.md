@@ -2,9 +2,9 @@
 
 ## 环境
 - 模型：`qwen3.8-flash`  temperature=0.0
-- Prompt 指纹：`a32cc524ca69`
+- Prompt 指纹：`a7d099e8ee30`
 - 数据集：`data\benchmarks\chinook_v0.jsonl`，共 30 题（可判定 24 题）
-- 开始时间：2026-10-29 12:52:03
+- 开始时间：2026-10-29 19:17:01
 
 ## 汇总
 
@@ -16,9 +16,9 @@
 | 平均输入 token | N/A |
 | SQL/执行错误率 | 0.00% |
 | 特殊题行为正确率 | 0.00% |
-| 延迟 P50 / P95 | 16915 / 33296 ms |
-| 单题成本 | ¥0.003206 |
-| 总成本 | ¥0.0962 |
+| 延迟 P50 / P95 | 9001 / 46964 ms |
+| 单题成本 | ¥0.003086 |
+| 总成本 | ¥0.0926 |
 | 平均 LLM 调用次数 | 1.0 |
 | 首轮正确率 | N/A |
 | 修复增益 | N/A |
@@ -52,7 +52,7 @@
 
 - `ch-008` 期望=refuse 实际=answer ok=False
 - `ch-007` 期望=clarify 实际=answer ok=False
-- `ch-029` 期望=clarify 实际=answer ok=False
 - `ch-027` 期望=clarify 实际=answer ok=False
-- `ch-030` 期望=refuse 实际=answer ok=False
+- `ch-029` 期望=clarify 实际=answer ok=False
 - `ch-028` 期望=clarify 实际=answer ok=False
+- `ch-030` 期望=refuse 实际=answer ok=False
