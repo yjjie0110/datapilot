@@ -33,9 +33,14 @@ def node_retrieve(state: AgentState) -> dict:
 def node_generate(state: AgentState, client: LLMClient) -> dict:
     user = f"# 数据库 Schema\n{state['schema_text']}\n\n# 用户问题\n{state['question']}"
 
+    # 【A4 路由】简单题给小模型；model_small 未配置时 settings 返回 None → 主模型
+    model = None
+    if state.get("route_small") and state.get("difficulty", 3) <= 1:
+        model = settings.model_small  # None 时 chat_json 回退主模型
+
     # 调用LLM return {text:..., model:..., in_token:..., out_token:..., cost_cny:..., latency_ms:...}
     # 其中 text{"sql": "...", "tables_used": ["表名"], "assumptions": ["你对题意做出的任何假设"]}
-    r = client.chat_json(SYSTEM, user)
+    r = client.chat_json(SYSTEM, user, model=model)
     # 【改】generate/validate 直写 error 时必须同时清掉 error_code——
     # 否则上一轮 execute 留下的旧 error_code 会让 diagnoser 误判（陈旧值污染）
     out = {"llm_calls": 1, "cost_cny": r.cost_cny, "in_tokens": r.in_tokens}

@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     price_in_per_m: float = 0.8
     price_out_per_m: float = 2.7
 
+    # 小模型路由
+    model_small: str = "qwen3.7-flash"        # DP_MODEL_SMALL；不配则路由退化为同模型
+    price_in_per_m_small: float = 0.2         # DP_PRICE_IN_PER_M_SMALL，不配则按主模型价记账
+    price_out_per_m_small: float = 0.8
+
+
     # —— 关键：重排 source 顺序，并过滤 dotenv 层 ——
     @classmethod
     def settings_customise_sources(

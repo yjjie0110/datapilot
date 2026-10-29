@@ -5,8 +5,6 @@ temperature=0 时命中即逐字节一致——缓存不改变 EX，只改变成
 ① 开发循环（调 prompt 后重跑，未受影响的问题白嫖）；
 ② 崩溃续跑；③ demo 现场。单次消融 run 的成本削减来自路由，不是缓存。
 """
-
-
 from __future__ import annotations
 
 import hashlib
@@ -14,27 +12,39 @@ import sqlite3
 import threading
 from pathlib import Path
 
-
 _LOCK = threading.Lock()  # runner 4 线程共享一个缓存文件，写必须串行
 
 
 class LLMCache:
     def __init__(self, path: str | Path):
+        # 父目录不存在时 sqlite3.connect 会抛 OperationalError: unable to open database file。
+        # 缓存路径（如 experiments/cache/llm_cache.db）首次运行前目录可能还没建，必须先 mkdir。
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         self._conn.execute(
-            "CREATE TABLE IF NOT EXISTS cache (k TEXT PRIMARY KEY, v TEXT)"
-        )
+            "CREATE TABLE IF NOT EXISTS cache (k TEXT PRIMARY KEY, v TEXT)")
         self._conn.commit()
         self.hits = 0
         self.misses = 0
 
-        @staticmethod
-        def key(model: str, system: str, user: str, temperature: float) -> str:
-            raw = f"{model}{temperature}{system}{user}"
-            return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    @staticmethod
+    def key(model: str, system: str, user: str, temperature: float) -> str:
+        raw = f"{model}{temperature}{system}{user}"
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-        def get(self, k: str) -> str | None:
-            row = self._conn.execute("SELECT v FROM cache WHERE k = ?", (k,)).fetchone()
+    def get(self, k: str) -> str | None:
+        row = self._conn.execute("SELECT v FROM cache WHERE k=?", (k,)).fetchone()
+        if row is None:
+            self.misses += 1
+            return None
+        self.hits += 1
+        return row[0]
 
+    def put(self, k: str, v: str) -> None:
+        with _LOCK:
+            self._conn.execute("INSERT OR REPLACE INTO cache VALUES (?,?)", (k, v))
+            self._conn.commit()
 
-
+    def close(self) -> None:
+        # Windows 上不 close 会占着文件句柄，删缓存文件/清理临时目录时报 WinError 32
+        self._conn.close()

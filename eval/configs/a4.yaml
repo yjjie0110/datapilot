@@ -1,0 +1,5 @@
+pipeline: a4
+top_k: 6
+repair_max_attempts: 3
+cache: true
+route_small: true

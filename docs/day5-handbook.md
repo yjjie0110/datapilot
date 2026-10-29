@@ -242,6 +242,7 @@ python scripts/build_ecommerce_db.py
 ```
 
 **设计意图（写进日报的"决策"栏）：**
+
 - `order_items.unit_price` 是成交价快照，与 `products.price`（现价）**刻意不一致**——"按现价算销售额"是陷阱题素材；
 - `orders.status` 五态，成交口径 = `paid/shipped/completed`——不算取消/退款是陷阱题素材；
 - `shipments.delivered_at` 可空 + `coupon_redemptions` 纯中间表——分别是 NULL 处理题和 FK 扩展题素材；
@@ -280,11 +281,38 @@ python scripts/build_ecommerce_db.py
 加上存量后全局：110 题，其中歧义 15、陷阱 10——**恰好达到总手册 150 题要求的特殊题密度**。题量 110 vs 150 的缺口是有意的取舍：60 道经过 verify-gold 的题 > 100 道没验证的题，写进日报"决策"栏。
 
 **出题纪律（与 Day 2 相同，不重复解释）：**
+
 - 每题先写 `expected_behavior` 和 notes（标注意图），再写 gold_sql；
 - 写完必须 `python -m src.datapilot.cli verify-gold --dataset data/benchmarks/ecommerce_v0.jsonl`，200 行截断警告必须清零（回想 sa-003 教训）；
 - `python -m src.datapilot.eval.gold_tables data/benchmarks/ecommerce_v0.jsonl` 回填 gold_tables；
 - **至少 2 道 nested 题的 gold_sql 用 WITH 写**——CTE 抽取路径至今只有单测覆盖（Day 2 遗留）；
 - order_sensitive 按题面语义手工标（不是按 gold_sql 有没有 ORDER BY 机械标，Day 2 教训）。
+
+
+
+**增加业务口径（后期可以放入一个文件中，让system_prompt 去读取）**
+
+a0.py 增加
+
+```python
+SYSTEM = """你是一名资深的 SQLite 数据分析师，任务是把用户的问题翻译成一条可执行的 SQLite 查询。
+
+业务口径（必须严格遵守）：
+- 商品的"在售"状态值是 status='on'（不是中文'在售'），"下架"是 status='off'。
+- "成交订单"指 orders.status IN ('paid','shipped','completed')，cancelled/refunded 不算。
+- "GMV/成交总金额"指成交订单的 payments.amount 求和（不是 order_items 的金额）。
+
+
+规则：
+1. 只允许使用下面 schema 中出现的表和列，禁止臆造表名或列名。
+2. 只生成一条查询语句，可以使用 CTE（WITH）。禁止任何写操作。
+3. 不要输出 SQL 之外的任何解释文字。
+4. 必须严格输出如下 JSON：
+{"sql": "...", "tables_used": ["表名"], "assumptions": ["你对题意做出的任何假设"]}
+"""
+```
+
+
 
 ### 1.4 第三库的 headroom 红线（先跑 A0！）
 
@@ -543,10 +571,30 @@ python -m src.datapilot.cli eval --config a4 --dataset data/benchmarks/ecommerce
 
 ```bash
 for cfg in a0 a1 a2 a3 a4; do
-  python -m src.datapilot.cli eval --config $cfg --dataset data/benchmarks/ecommerce_v0.jsonl --run-id ${cfg}_ecommerce
+  python -m src.datapilot.cli eval --config $cfg --dataset data/benchmarks/ecommerce_v0.jsonl --run-id ecommerce_${cfg}
 done
 python -m src.datapilot.cli eval --config a4 --run-id a4_chinook
 python -m src.datapilot.cli eval --config a4 --dataset data/benchmarks/sakila_v0.jsonl --run-id a4_sakila
+
+
+# powershell 写法
+foreach ($cfg in 'a0','a1','a2','a3','a4') {
+  python -m src.datapilot.cli eval --config $cfg `
+    --dataset data/benchmarks/ecommerce_v0.jsonl `
+    --run-id "ecommerce_$cfg"
+}
+
+foreach ($cfg in 'a0','a1','a2','a3','a4') {
+  python -m src.datapilot.cli eval --config $cfg `
+    --dataset data/benchmarks/sakila_v0.jsonl `
+    --run-id "sakila_$cfg"
+}
+
+foreach ($cfg in 'a0','a1','a2','a3','a4') {
+  python -m src.datapilot.cli eval --config $cfg `
+    --dataset data/benchmarks/chinook_v0.jsonl `
+    --run-id "chinook_$cfg"
+}
 ```
 
 预算提醒：ecommerce 60–80 题 × 5 配置，A3/A4 单题约 ¥0.009，合计约 ¥3–4。错峰跑，撞 429 就等。

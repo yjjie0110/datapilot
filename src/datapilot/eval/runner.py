@@ -62,6 +62,9 @@ def get_pipeline(cfg: dict) -> Callable[[dict], dict]:
     if name == "a3":
         from src.datapilot.pipelines.a3 import graph_answer_a3
         return lambda q: graph_answer_a3(q, cfg=cfg)
+    if name == "a4":
+        from src.datapilot.pipelines.a4 import graph_answer_a4
+        return lambda q: graph_answer_a4(q, cfg=cfg)
     raise ValueError(f"未知 pipeline：{name}")
 
 

@@ -92,4 +92,4 @@ if __name__ == "__main__":
     from src.datapilot.config import settings
     print(settings.db_dir)
     # print(full_schema_text(settings.db_dir / "chinook.db"))
-    print(full_schema_text(settings.db_dir / "sakila.db"))
+    print(schema_text_for(settings.db_dir / "sakila.db", ["actor", "city"]))

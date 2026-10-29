@@ -39,9 +39,12 @@ class LLMResult:
 class LLMClient:
     """所有 LLM 调用必须走这里——成本记账只能有一个入口。"""
 
-    def __init__(self, s=settings):
+    # ① __init__ 加参数（改后签名，cache_path=None 时行为与现在逐字节一致）：
+    def __init__(self, s=settings, cache_path: str | None = None):
         self.s = s
         self._client = OpenAI(api_key=s.api_key, base_url=s.base_url)
+        from src.datapilot.llm.cache import LLMCache  # 函数内 import，无缓存时零依赖
+        self._cache = LLMCache(cache_path) if cache_path else None
 
     def chat_json(
         self,
@@ -65,12 +68,31 @@ class LLMClient:
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
+        # ② chat_json 里 self._call(kwargs) 之前插入：
+        cache_key = None
+        if self._cache is not None:
+            cache_key = self._cache.key(kwargs["model"], system, user, kwargs["temperature"])
+            hit = self._cache.get(cache_key)
+            if hit is not None:
+                return LLMResult(text=hit, model=kwargs["model"],
+                                 in_tokens=0, out_tokens=0,
+                                 cost_cny=0.0,
+                                 latency_ms=round((time.perf_counter() - t0) * 1000))
+        # 命中记 0 token/0 成本——缓存命中本来就没调 API，账必须如实记
+
         resp = self._call(kwargs)  # 通过带 tenacity 重试的 _call 发起请求
         u = resp.usage  # 取 token 用量
+
         # 成本公式：(输入 token / 1e6) × 输入单价 + (输出 token / 1e6) × 输出单价
-        cost = (u.prompt_tokens / 1e6) * self.s.price_in_per_m + (
-            u.completion_tokens / 1e6
-        ) * self.s.price_out_per_m
+        if kwargs["model"] == self.s.model_small and self.s.price_in_per_m_small:
+            pin, pout = self.s.price_in_per_m_small, self.s.price_out_per_m_small
+        else:
+            pin, pout = self.s.price_in_per_m, self.s.price_out_per_m
+        cost = (u.prompt_tokens / 1e6) * pin + (u.completion_tokens / 1e6) * pout
+
+        # ③ 拿到 resp 之后、return 之前插入：
+        if self._cache is not None and cache_key is not None:
+            self._cache.put(cache_key, resp.choices[0].message.content or "")
 
         return LLMResult(
             # `resp.choices[0].message.content` → 模型生成的文本内容

@@ -14,6 +14,12 @@ from src.datapilot.tools.sql_runner import run_sql
 
 SYSTEM = """你是一名资深的 SQLite 数据分析师，任务是把用户的问题翻译成一条可执行的 SQLite 查询。
 
+业务口径（必须严格遵守）：
+- 商品的"在售"状态值是 status='on'（不是中文'在售'），"下架"是 status='off'。
+- "成交订单"指 orders.status IN ('paid','shipped','completed')，cancelled/refunded 不算。
+- "GMV/成交总金额"指成交订单的 payments.amount 求和（不是 order_items 的金额）。
+
+
 规则：
 1. 只允许使用下面 schema 中出现的表和列，禁止臆造表名或列名。
 2. 只生成一条查询语句，可以使用 CTE（WITH）。禁止任何写操作。

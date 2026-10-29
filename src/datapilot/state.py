@@ -51,3 +51,6 @@ class AgentState(TypedDict, total=False):
     verify: Optional[dict]     # node_verifier{verdict, reason, flags}
     verify_retried: bool       # verify 打回后已修复过一次（防 verify↔repair 震荡）
     answer_text: Optional[str] # compose 产出的人话结论
+
+    # A4：小模型
+    route_small: bool  # A4：简单题路由小模型
