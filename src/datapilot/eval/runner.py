@@ -86,6 +86,9 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
         }
         err = f"{type(e).__name__}: {e}"
 
+    # Day 6 补answer_text
+    answer_text = out.get("answer_text", None)
+
     # 取预测行、gold 行、行为
     rows = out.get("rows")  # 经过llm 产生sql 获取的pre
     gold = q.get("gold_result")  # chinook_v0.jsonl 中的gold_result
@@ -162,6 +165,7 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
         "latency_ms": round((time.perf_counter() - t0) * 1000),
         "llm_calls": out.get("llm_calls", 0),
         "cost_cny": out.get("cost_cny", 0.0),
+        "answer_text": answer_text,  # Day 6 新增
     }
 
 

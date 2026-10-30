@@ -30,6 +30,7 @@ def main(run_ids: list[str]) -> None:
             f"## {i}. `{r['id']}`（{r['_run']}）",
             f"- 问题：{r['question']}",
             f"- SQL：`{(r.get('sql') or '')[:200]}`",
+            f"- 结论：{r.get('answer_text') or '（无）'}",
             f"- 结果行数：{r.get('row_count')}",
             "- [ ] 结论有过度断言（勾选即计一次错误自信）",
             "- 备注：", ""]

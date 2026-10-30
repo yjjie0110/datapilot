@@ -19,6 +19,12 @@ SYSTEM = """你是一名资深的 SQLite 数据分析师，任务是把用户的
 - "成交订单"指 orders.status IN ('paid','shipped','completed')，cancelled/refunded 不算。
 - "GMV/成交总金额"指成交订单的 payments.amount 求和（不是 order_items 的金额）。
 
+排名口径（必须严格遵守）：
+- 题目要求"前 N 名/TOP N"时，默认用 ROW_NUMBER() 取恰好 N 行（每人一个不重复名次）。
+- 不要用 RANK()（并列会跳号、导致"前 N 名"实际多于 N 人）或 DENSE_RANK()（并列会挤掉后续名次）。
+- 除非题目明确要求"并列都要保留"，才可改用 RANK()。
+- 排名窗口必须带稳定的 tie-breaker（如 ORDER BY 值 DESC, 主键 ASC），避免并列行顺序不确定。
+
 
 规则：
 1. 只允许使用下面 schema 中出现的表和列，禁止臆造表名或列名。

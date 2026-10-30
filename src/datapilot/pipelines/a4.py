@@ -61,4 +61,5 @@ def graph_answer_a4(q: dict, client=None, cfg: dict | None = None) -> dict:
             "gate": final.get("gate"),
             "verify": final.get("verify"),
         },
+        "answer_text": final.get("answer_text"),  # Day 6 追加
     }

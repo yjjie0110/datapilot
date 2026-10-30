@@ -44,29 +44,32 @@ def deterministic_flags(rows, columns, truncated) -> list[str]:
 
 
 def node_verify(state: AgentState, client: LLMClient) -> dict:
+    """【Day 6 降级】只做确定性 guard，不再调 LLM judge。
+    依据：Day 5 三库 verify_fixed=0、误杀 1 例（非 verify 责任），LLM judge 无正收益。
+    保留 deterministic_flags 作为零成本拦截；client 参数保留签名以兼容接线，但不使用。"""
     flags = deterministic_flags(
         state.get("rows"), state.get("columns"), state.get("truncated"))
-    # 成本控制：无告警且低难度 → 免 LLM 直接 pass（不调 LLM 就不许返回累加字段）
-    if not flags and (state.get("difficulty") or 1) < 3:
-        return {"verify": {"verdict": "pass", "reason": "确定性检查通过，低难度免判",
-                           "flags": []}}
+    verdict = "wrong" if flags else "pass"
+    return {"verify": {"verdict": verdict, "reason": "确定性检查", "flags": flags}}
 
-    rows = state.get("rows") or []
-    sample = "\n".join(str(tuple(r)) for r in rows[:5])
-    # 调用 client.chat_json，返回 LLMResult：{text, model, in_tokens, out_tokens, cost_cny, latency_ms}
-    # 其中 text = {"verdict": "pass|wrong", "reason": "一句话"}
-    r = client.chat_json(VERIFY_SYSTEM, VERIFY_USER.format(
-        question=state["question"], sql=state["sql"],
-        n_rows=len(rows), sample=sample or "（空）",
-        flags="；".join(flags) or "无"
-    ))
-    out = {"llm_calls": 1, "cost_cny": r.cost_cny, "in_tokens": r.in_tokens}
-    try:
-        v = json.loads(r.text)
-        verdict = v.get("verdict", "pass")
-        if verdict not in ("pass", "wrong"):
-            verdict = "pass"  # fail-open，同 gate
-    except Exception:
-        verdict, v = "pass", {"reason": "verify 输出解析失败，默认放行"}
-    out["verify"] = {"verdict": verdict, "reason": v.get("reason", ""), "flags": flags}
-    return out
+
+    # 删掉 LLM 调用那段，只保留确定性检查
+    # rows = state.get("rows") or []
+    # sample = "\n".join(str(tuple(r)) for r in rows[:5])
+    # # 调用 client.chat_json，返回 LLMResult：{text, model, in_tokens, out_tokens, cost_cny, latency_ms}
+    # # 其中 text = {"verdict": "pass|wrong", "reason": "一句话"}
+    # r = client.chat_json(VERIFY_SYSTEM, VERIFY_USER.format(
+    #     question=state["question"], sql=state["sql"],
+    #     n_rows=len(rows), sample=sample or "（空）",
+    #     flags="；".join(flags) or "无"
+    # ))
+    # out = {"llm_calls": 1, "cost_cny": r.cost_cny, "in_tokens": r.in_tokens}
+    # try:
+    #     v = json.loads(r.text)
+    #     verdict = v.get("verdict", "pass")
+    #     if verdict not in ("pass", "wrong"):
+    #         verdict = "pass"  # fail-open，同 gate
+    # except Exception:
+    #     verdict, v = "pass", {"reason": "verify 输出解析失败，默认放行"}
+    # out["verify"] = {"verdict": verdict, "reason": v.get("reason", ""), "flags": flags}
+    # return out

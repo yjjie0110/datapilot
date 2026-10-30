@@ -21,32 +21,34 @@ _clients: dict = {}  # cache_path -> LLMClient；None 键即原单例语义
 
 
 # 改为按缓存路径分键（A2/A3 调用方式不变）
-def _get_client(cache_path: str | None = None) -> LLMClient:
-    if cache_path not in _clients:
-        _clients[cache_path] = LLMClient(cache_path=cache_path)
-    return _clients[cache_path]
+def _get_client(cache_path: str | None = None, tracer=None) -> LLMClient:
+    key = (cache_path, id(tracer)) if tracer is not None else cache_path
+    if key not in _clients:
+        _clients[key] = LLMClient(cache_path=cache_path, tracer=tracer)
+    return _clients[key]
 
 
-def build_graph(checkpoint_db: str, with_reliability: bool = False, cfg: dict | None = None):
+def build_graph(checkpoint_db: str, with_reliability: bool = False, cfg: dict | None = None,
+                tracer=None):
     cfg = cfg or {}
     cache_path = cfg.get("cache_path")      # 仅 A4 传
-    # 函数内所有 _get_client() 调用改为 _get_client(cache_path)
+    # 函数内所有 _get_client() 调用改为 _get_client(cache_path, tracer)
 
     g = StateGraph(AgentState)
     g.add_node("retrieve", node_retrieve)
-    g.add_node("generate", lambda s: node_generate(s, _get_client(cache_path)))
+    g.add_node("generate", lambda s: node_generate(s, _get_client(cache_path, tracer)))
     g.add_node("validate", node_validate)
     g.add_node("execute", node_execute)
-    g.add_node("diagnose", lambda s: node_diagnose(s, _get_client(cache_path)))
-    g.add_node("repair", lambda s: node_repair(s, _get_client(cache_path)))
+    g.add_node("diagnose", lambda s: node_diagnose(s, _get_client(cache_path, tracer)))
+    g.add_node("repair", lambda s: node_repair(s, _get_client(cache_path, tracer)))
     g.add_node("give_up", node_give_up)
-    g.add_node("compose", node_compose)
+    g.add_node("compose", lambda s: node_compose(s, _get_client(cache_path, tracer)))
 
     if with_reliability:
         # —— A3：gate + verify 接入 ——
-        g.add_node("gate", lambda s: node_gate(s, _get_client(cache_path)))
+        g.add_node("gate", lambda s: node_gate(s, _get_client(cache_path, tracer)))
         g.add_node("clarify_wait", node_clarify_wait)
-        g.add_node("verify", lambda s: node_verify(s, _get_client(cache_path)))
+        g.add_node("verify", lambda s: node_verify(s, _get_client(cache_path, tracer)))
 
         g.add_edge(START, "retrieve")
         g.add_edge("retrieve", "gate")

@@ -40,11 +40,12 @@ class LLMClient:
     """所有 LLM 调用必须走这里——成本记账只能有一个入口。"""
 
     # ① __init__ 加参数（改后签名，cache_path=None 时行为与现在逐字节一致）：
-    def __init__(self, s=settings, cache_path: str | None = None):
+    def __init__(self, s=settings, cache_path: str | None = None, tracer=None):
         self.s = s
         self._client = OpenAI(api_key=s.api_key, base_url=s.base_url)
         from src.datapilot.llm.cache import LLMCache  # 函数内 import，无缓存时零依赖
         self._cache = LLMCache(cache_path) if cache_path else None
+        self._tracer = tracer  # Day 6 §3：可选的 Tracer，None 时零开销（不影响原有调用）
 
     def chat_json(
         self,
@@ -74,6 +75,12 @@ class LLMClient:
             cache_key = self._cache.key(kwargs["model"], system, user, kwargs["temperature"])
             hit = self._cache.get(cache_key)
             if hit is not None:
+                # Day 6 §3：缓存命中也记 trace，标记 cache_hit=True（否则 token=0 让人困惑）
+                if self._tracer is not None:
+                    self._tracer.log("llm_call", model=kwargs["model"],
+                                     in_tokens=0, out_tokens=0, cost_cny=0.0,
+                                     latency_ms=round((time.perf_counter() - t0) * 1000),
+                                     cache_hit=True)
                 return LLMResult(text=hit, model=kwargs["model"],
                                  in_tokens=0, out_tokens=0,
                                  cost_cny=0.0,
@@ -94,7 +101,7 @@ class LLMClient:
         if self._cache is not None and cache_key is not None:
             self._cache.put(cache_key, resp.choices[0].message.content or "")
 
-        return LLMResult(
+        result = LLMResult(
             # `resp.choices[0].message.content` → 模型生成的文本内容
             text=resp.choices[0].message.content or "",
             model=kwargs["model"],
@@ -103,6 +110,17 @@ class LLMClient:
             cost_cny=round(cost, 8),
             latency_ms=round((time.perf_counter() - t0) * 1000),
         )
+
+        # ④ Day 6 §3：LLM 级 trace（tracer 为 None 时跳过，零开销）
+        if self._tracer is not None:
+            self._tracer.log("llm_call",
+                             model=result.model,
+                             in_tokens=result.in_tokens,
+                             out_tokens=result.out_tokens,
+                             cost_cny=result.cost_cny,
+                             latency_ms=result.latency_ms,
+                             cache_hit=False)
+        return result
 
     # 带重试的底层调用
     @retry(

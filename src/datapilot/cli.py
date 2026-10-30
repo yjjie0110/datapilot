@@ -56,17 +56,25 @@ def cmd_eval(
 
 @app.command("ask")
 def cmd_ask(question: str = "", db: str = "chinook",
-            thread: str = "cli-default", resume: str = ""):
+            thread: str = "cli-default", resume: str = "",
+            trace: str = ""):
     """单题即席提问，支持 HITL 澄清：
     ask "哪个歌单最受欢迎？" --thread demo1
     ask --thread demo1 --resume "按购买次数"
+    --trace 可选：把本次运行的 LLM 调用链落成 JSONL（Day 6 §3 可观测）
     """
     from langgraph.types import Command
     from src.datapilot.graph import build_graph
+    from src.datapilot.obs.tracer import Tracer
+
+    # Day 6 §3：可选 tracer（--trace 传路径则开启）
+    tracer = Tracer(trace) if trace else None
+    if tracer is not None:
+        tracer.log("question", question_id=f"ask-{thread}", question=question, db=db)
 
     # ★ 固定 checkpoint 文件：评测那套 per-thread 文件（checkpoints-{线程id}.db）
     # 跨进程 resume 时找不到旧 checkpoint——演示链路必须用固定文件名
-    app = build_graph("checkpoints-cli.db", with_reliability=True)
+    app = build_graph("checkpoints-cli.db", with_reliability=True, tracer=tracer)
     cfg = {"configurable": {"thread_id": thread}}
     if resume:
         # langgraph 1.x：Command(resume=...) 把用户回答送回挂起的 interrupt 处
@@ -80,6 +88,9 @@ def cmd_ask(question: str = "", db: str = "chinook",
              "verify_retried": False,
              "behavior": "answer", "cost_cny": 0.0, "in_tokens": 0, "llm_calls": 0},
             config=cfg)
+
+    if tracer is not None:
+        tracer.close()
 
     # langgraph 1.x：被 interrupt 挂起时，结果 dict 里带 __interrupt__ 键
     interrupts = final.get("__interrupt__")

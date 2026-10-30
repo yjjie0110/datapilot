@@ -59,4 +59,5 @@ def graph_answer_a3(q: dict, client=None, cfg: dict | None = None) -> dict:
             "gate": final.get("gate"),      # ★3 行为决策留痕（进 results.jsonl 可溯源）
             "verify": final.get("verify"),  # ★3 校验留痕
         },
+        "answer_text": final.get("answer_text"),  # Day 6 追加
     }

@@ -38,15 +38,21 @@ COMPOSE_USER = """# 用户问题
 # 执行的 SQL
 {sql}
 
-# 查询结果（共 {n_rows} 行，最多展示前 {n_sample} 行）
+# 查询结果的列名（顺序与数据行一一对应）
+{columns}
+
+# 查询结果（共 {n_rows} 行，最多展示前 {n_sample} 行，每行数据按上列列名顺序排列）
 {sample}
 
 要求：
 1. 结论必须严格基于结果集，不推断、不补数据、不编单位或趋势。
-2. 结果被截断（truncated）时，明确说"前 N 行"而不是"全部"。
-3. 结果为空时，直接说"未查询到符合条件的数据"，不臆测原因。
-4. 只输出一句话结论，不超过 60 字。
+2. 结论要直接回答用户问题：点名关键实体（如国家名、客户名、类别名）和关键数值，不要只说"共 N 行"这类元信息。
+3. 结果被截断（truncated）时，明确说"前 N 行"而不是"全部"。
+4. 结果为空时，直接说"未查询到符合条件的数据"，不臆测原因。
+5. 只输出一句话结论，不超过 80 字。
 只输出纯文本，不要 JSON。"""
+
+> ⚠️ **踩坑（必须遵守，否则结论是废的）**：`{columns}` 占位符**不能省**。如果只把结果行当裸元组喂给模型（`str(tuple(r))`），模型看不到列名，只能瞎猜哪一列是金额/国家，会产出"消费额介于 37.62 至 42.62"这种空洞结论（既没点名实体、又可能是错的）。正确做法是 `sample` 拼成 `表头 + 数据行`，并把 `columns` 单独传进 format。
 ```
 
 然后改 `node_compose`，让它**接收 client** 并生成结论（graph.py 里 compose 目前不传 client，需要改接线）：
@@ -72,11 +78,18 @@ def node_compose(state: AgentState, client: LLMClient | None = None) -> dict:
         suffix = "（结果已截断）" if state.get("truncated") else ""
         return {"answer_text": f"查询结果（{len(rows)} 行）{suffix}：\n{header}\n{body}"}
 
-    sample = "\n".join(str(tuple(r)) for r in rows[:10])
+    # 带表头拼 sample：模型必须知道每列含义，否则只能瞎猜（会产出"消费额介于X至Y"这类空洞结论）
+    cols = state.get("columns") or []
+    header = " | ".join(str(c) for c in cols)
+    body = "\n".join(" | ".join(str(v) for v in row) for row in rows[:10])
+    sample = f"{header}\n{body}" if cols else str(tuple(rows[0])) if rows else "（空）"
     r = client.chat_json(COMPOSE_SYSTEM, COMPOSE_USER.format(
         question=state["question"], sql=state["sql"],
+        columns=", ".join(str(c) for c in cols) or "（未知）",
         n_rows=len(rows), n_sample=min(10, len(rows)),
-        sample=sample or "（空）"), json_mode=False)
+        sample=sample or "（空）"
+    ), json_mode=False
+    )
     # 结论调用也要记账（llm_calls/cost_cny 挂 operator.add Reducer）
     return {
         "answer_text": r.text.strip(),
@@ -127,13 +140,39 @@ f"- 结论：{r.get('answer_text') or '（无）'}",
 ### 1.6 验收
 
 ```bash
-python -m src.datapilot.cli ask "每个国家客户总消费额前 5 名"
+python -m src.datapilot.cli ask --question "每个国家客户总消费额前 5 名"
 # 预期：不再只是吐 SQL + 结果表，而是输出一句自然语言结论
 python scripts/make_review_sheet.py chinook_a3 sakila_a3 ecommerce_a3
 # 预期：review_sheet 每条出现"结论："字段，且有可读的自然语言（不是结果 dump）
 ```
 
+**验收标准（三条都要满足，否则判不通过）：**
+
+1. **点名实体 + 数值**：结论必须出现具体实体名（国家名/客户名/类别名等）和关键数值（金额、数量），不能只说"共 N 行 / 展示前 10 行"这类元信息。反例：`"消费额介于 37.62 至 42.62"`（空洞，未点名实体）。
+2. **不含并列歧义**：排名类题若出现并列，结论要么如实说明"存在并列、前 N 名实际多于 N 人"，要么 SQL 用 `ROW_NUMBER()` 取恰好 N 行避免并列。反例：`"巴西第2名均为37.62"`（把金额当名次，病句）。
+3. **SQL 窗口函数正确**：题目"前 N 名"默认用 `ROW_NUMBER()`（恰 N 行），不得用 `RANK()`（并列跳号导致溢出）或 `DENSE_RANK()`（并列挤名次）。这是 `a0.SYSTEM` 里已加的硬规则，若这里出现 RANK 说明规则没生效，需回头查 prompt 是否被覆盖。
+
 > 注意：composer 加 LLM 会改变 A3/A4 的成本（每题多 1 次小调用）。但这是**必要的成本**——"结论"才是数据分析 Agent 的交付物。若担心成本，可让 compose 复用 `model_small`（`route_small` 同一套逻辑），Day 6 收尾时在日报里写清"结论生成的增量成本"。
+
+### 1.7 踩坑复盘：两个真实的坑（已修，写进日报）
+
+验收 §1.6 时实际踩了两个坑，都值得沉淀：
+
+**坑 1：漏传列名 → 结论空洞。** 第一版 `sample` 用裸元组 `str(tuple(r))` 拼装，没带 `columns`。模型面对 `('Argentina', 1, 'Leone Köhler', 37.62, 1)` 这种无表头数据，不知道哪列是金额，只能瞎猜，产出 `"消费额介于 37.62 至 42.62"` 这种既没点名实体、又是错误区间的结论。**修法**：`sample` 拼成 `表头 + 数据行`，并把 `columns` 传进 `COMPOSE_USER`。
+
+**坑 2：RANK 并列 → SQL 错 + 结论病句。** 模型生成"每个国家前 5 名"时用了 `RANK()`（并列跳号），导致 Brazil 第 2 名有 4 人并列 37.62，"前 5 名"实际多于 5 人（总行数 48→53，Canada 8 人/USA 7 人溢出），结论还出现病句 `"巴西第2名均为37.62"`。**修法**：在 `a0.SYSTEM` 加"排名口径"硬规则（前 N 名默认 `ROW_NUMBER()` 恰 N 行、禁 RANK/DENSE_RANK、排名窗口带稳定 tie-breaker），一次覆盖 A0~A4 所有 generate 节点。
+
+`a0.py` 的 `SYSTEM` 里新增这段（与"业务口径"并列）：
+
+```python
+排名口径（必须严格遵守）：
+- 题目要求"前 N 名/TOP N"时，默认用 ROW_NUMBER() 取恰好 N 行（每人一个不重复名次）。
+- 不要用 RANK()（并列会跳号、导致"前 N 名"实际多于 N 人）或 DENSE_RANK()（并列会挤掉后续名次）。
+- 除非题目明确要求"并列都要保留"，才可改用 RANK()。
+- 排名窗口必须带稳定的 tie-breaker（如 ORDER BY 值 DESC, 主键 ASC），避免并列行顺序不确定。
+```
+
+> 这两坑其实是同一个方法论问题：**把"语义约束"显式化进 prompt**。列名是 compose 的语义约束、窗口函数是 generate 的语义约束——不写清楚，模型就会在无约束的空间里瞎猜。Day 7 写"已知局限"时，把"排序题并列/tie-breaker 口径"作为一个反复出现的系统性短板单列。
 
 ## 2. verifier 降级：砍 LLM judge，只留确定性 guard（1 小时）
 
@@ -182,6 +221,7 @@ def node_verify(state: AgentState, client: LLMClient) -> dict:
 每条 trace 记录：时间戳、节点名、输入摘要、输出摘要、token、耗时、错误。
 """
 import json
+import threading
 import time
 from pathlib import Path
 
@@ -191,17 +231,19 @@ class Tracer:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._f = self.path.open("a", encoding="utf-8")
+        self._lock = threading.Lock()  # runner 多线程共享一个 trace 文件，写必须串行
 
     def log(self, event: str, **fields) -> None:
         rec = {"ts": time.time(), "event": event, **fields}
-        self._f.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
-        self._f.flush()
+        line = json.dumps(rec, ensure_ascii=False, default=str) + "\n"
+        with self._lock:
+            self._f.write(line)
+            self._f.flush()
 
     def close(self) -> None:
-        self._f.close()
+        with self._lock:
+            self._f.close()
 ```
-
-> 接入点：在 `client.py` 的 `chat_json` 里、在 `graph.py` 各节点执行前后各记一条。最小改动是只给 `chat_json` 加 hook（因为 LLM 调用是成本/延迟的主要来源），节点级 trace 可在 `build_graph` 里包一层 wrapper。**建议先只做 LLM 级 trace，节点级如果时间不够就砍。**
 
 ### 3.2 trace_viewer.py（新建 `src/datapilot/obs/trace_viewer.py`）
 
@@ -214,26 +256,107 @@ from collections import defaultdict
 
 def main(path: str) -> None:
     rows = [json.loads(l) for l in open(path, encoding="utf-8")]
-    # 按 thread_id / question_id 分组，缩进打印 event 顺序
+    # 按 question_id 分组；llm_call 等事件若没带 question_id，归到最近一次 question 事件
     by_q = defaultdict(list)
+    cur = None
     for r in rows:
-        by_q[r.get("question_id", "?")].append(r)
+        if r.get("event") == "question":
+            cur = r.get("question_id", "?")
+        by_q[cur or "?"].append(r)
     for qid, rs in by_q.items():
         print(f"== {qid} ==")
         for r in rs:
             ev = r.get("event", "?")
             tok = r.get("in_tokens", 0) + r.get("out_tokens", 0)
-            print(f"  {ev:<20} tokens={tok:<6} cost=¥{r.get('cost_cny', 0):.5f} "
-                  f"ms={r.get('latency_ms', 0)}")
+            hit = " [cache]" if r.get("cache_hit") else ""
+            model = r.get("model", "")
+            print(f"  {ev:<10} {model:<14} tokens={tok:<6} cost=¥{r.get('cost_cny', 0):.6f} "
+                  f"ms={r.get('latency_ms', 0)}{hit}")
+            if ev == "question":
+                print(f"    └─ 问题：{r.get('question', '')[:60]}")
 
 
 if __name__ == "__main__":
     main(sys.argv[1])
 ```
 
-### 3.3 验收
+### 3.3 接入：让 chat_json 记 trace（核心改动，4 个文件）
+
+**光有 Tracer 类不会自动生效**，必须把它接到 `LLMClient.chat_json` 上，否则跑任何东西都不产 trace。改 4 处：
+
+**① `llm/client.py` — `LLMClient.__init__` 加 tracer 参数：**
+
+```python
+def __init__(self, s=settings, cache_path: str | None = None, tracer=None):
+    self.s = s
+    self._client = OpenAI(api_key=s.api_key, base_url=s.base_url)
+    from src.datapilot.llm.cache import LLMCache
+    self._cache = LLMCache(cache_path) if cache_path else None
+    self._tracer = tracer  # Day 6 §3：可选的 Tracer，None 时零开销
+```
+
+**② `llm/client.py` — 缓存命中分支 + 正常返回分支各记一条：**
+
+```python
+# 缓存命中分支（token=0，不记 trace 会让人困惑"这次调用怎么没花 token"）：
+if hit is not None:
+    if self._tracer is not None:
+        self._tracer.log("llm_call", model=kwargs["model"],
+                         in_tokens=0, out_tokens=0, cost_cny=0.0,
+                         latency_ms=round((time.perf_counter() - t0) * 1000),
+                         cache_hit=True)
+    return LLMResult(...)
+
+# 正常返回前（拿到 result 之后）：
+if self._tracer is not None:
+    self._tracer.log("llm_call", model=result.model,
+                     in_tokens=result.in_tokens, out_tokens=result.out_tokens,
+                     cost_cny=result.cost_cny, latency_ms=result.latency_ms,
+                     cache_hit=False)
+```
+
+**③ `graph.py` — `_get_client` 和 `build_graph` 透传 tracer：**
+
+```python
+def _get_client(cache_path: str | None = None, tracer=None) -> LLMClient:
+    key = (cache_path, id(tracer)) if tracer is not None else cache_path
+    if key not in _clients:
+        _clients[key] = LLMClient(cache_path=cache_path, tracer=tracer)
+    return _clients[key]
+
+def build_graph(checkpoint_db, with_reliability=False, cfg=None, tracer=None):
+    ...
+    # 6 个 LLM 节点的 _get_client(cache_path) 全部改成 _get_client(cache_path, tracer)
+    # generate / diagnose / repair / compose / gate / verify
+```
+
+**④ `cli.py` — `ask` 命令加 `--trace` 参数：**
+
+```python
+@app.command("ask")
+def cmd_ask(question: str = "", db: str = "chinook",
+            thread: str = "cli-default", resume: str = "", trace: str = ""):
+    from src.datapilot.obs.tracer import Tracer
+    tracer = Tracer(trace) if trace else None
+    if tracer is not None:
+        tracer.log("question", question_id=f"ask-{thread}", question=question, db=db)
+    app = build_graph("checkpoints-cli.db", with_reliability=True, tracer=tracer)
+    ...
+    if tracer is not None:
+        tracer.close()
+```
+
+> ⚠️ **踩坑（checkpoint 污染）**：实测发现 `llm_calls` 和 trace 条数对不上（15 vs 3），根因是 `checkpoints-cli.db` 残留历史 checkpoint——反复用同一 `thread_id="cli-default"` 时 langgraph 会恢复旧执行历史、把 llm_calls 累加。**教训：ask 演示/评测务必用唯一 thread_id（或换新 checkpoint 文件），否则结果被静默污染。** 换全新 thread_id 后 llm_calls 与 trace 条数严格一致。
+
+### 3.4 验收
 
 跑一次 `ask` 或 `eval --limit 1`，产出 trace 文件，`trace_viewer` 能打出调用树，且 token/成本/延迟对得上 meta.json。
+
+```bash
+python -m src.datapilot.cli ask --question "每个国家客户总消费额前 5 名" --trace experiments/trace/demo.jsonl
+python -m src.datapilot.obs.trace_viewer experiments/trace/demo.jsonl
+# 预期：question 事件 + 若干条 llm_call（generate/verify/compose），各带 model/token/cost/ms
+```
 
 ## 4. Demo + 工程化（2 小时，可砍的部分）
 
