@@ -89,20 +89,20 @@
   "order_sensitive": true,
   "notes": "五表链 join；正是为了考 schema 检索与长链 join；实测 India 6630.27 居首；金额列有浮点尾差（如 5802.7300000000005），靠指标归一化容忍",
   "gold_tables": [
-    "payment",
-    "customer",
     "address",
     "city",
-    "country"
+    "country",
+    "customer",
+    "payment"
   ]
 }
 {
   "id": "sa-003",
   "db_id": "sakila",
-  "question": "租借次数超过其所属类别平均租借次数的电影，返回电影标题，按标题升序排列。",
+  "question": "租借次数超过其所属类别平均租借次数的电影，返回电影标题，按标题升序排列，只取前 20 部。",
   "question_type": "nested",
   "difficulty": 3,
-  "gold_sql": "SELECT f.title FROM film f JOIN film_category fc ON f.film_id = fc.film_id JOIN inventory i ON i.film_id = f.film_id JOIN rental r ON r.inventory_id = i.inventory_id GROUP BY f.film_id, f.title, fc.category_id HAVING COUNT(r.rental_id) > (SELECT AVG(cnt) FROM (SELECT COUNT(r2.rental_id) AS cnt FROM film_category fc2 JOIN inventory i2 ON i2.film_id = fc2.film_id JOIN rental r2 ON r2.inventory_id = i2.inventory_id WHERE fc2.category_id = fc.category_id GROUP BY fc2.film_id)) ORDER BY f.title;",
+  "gold_sql": "SELECT f.title FROM film f JOIN film_category fc ON f.film_id = fc.film_id JOIN inventory i ON i.film_id = f.film_id JOIN rental r ON r.inventory_id = i.inventory_id GROUP BY f.film_id, f.title, fc.category_id HAVING COUNT(r.rental_id) > (SELECT AVG(cnt) FROM (SELECT COUNT(r2.rental_id) AS cnt FROM film_category fc2 JOIN inventory i2 ON i2.film_id = fc2.film_id JOIN rental r2 ON r2.inventory_id = i2.inventory_id WHERE fc2.category_id = fc.category_id GROUP BY fc2.film_id)) ORDER BY f.title LIMIT 20;",
   "gold_result": [
     [
       "ACADEMY DINOSAUR"
@@ -163,552 +163,12 @@
     ],
     [
       "ARMAGEDDON LOST"
-    ],
-    [
-      "ATLANTIS CAUSE"
-    ],
-    [
-      "ATTRACTION NEWTON"
-    ],
-    [
-      "BACKLASH UNDEFEATED"
-    ],
-    [
-      "BADMAN DAWN"
-    ],
-    [
-      "BALLOON HOMEWARD"
-    ],
-    [
-      "BANGER PINOCCHIO"
-    ],
-    [
-      "BARBARELLA STREETCAR"
-    ],
-    [
-      "BASIC EASY"
-    ],
-    [
-      "BEACH HEARTBREAKERS"
-    ],
-    [
-      "BEAR GRACELAND"
-    ],
-    [
-      "BEAUTY GREASE"
-    ],
-    [
-      "BERETS AGENT"
-    ],
-    [
-      "BEVERLY OUTLAW"
-    ],
-    [
-      "BILL OTHERS"
-    ],
-    [
-      "BINGO TALENTED"
-    ],
-    [
-      "BIRDS PERDITION"
-    ],
-    [
-      "BLACKOUT PRIVATE"
-    ],
-    [
-      "BLADE POLISH"
-    ],
-    [
-      "BLUES INSTINCT"
-    ],
-    [
-      "BOOGIE AMELIE"
-    ],
-    [
-      "BORROWERS BEDAZZLED"
-    ],
-    [
-      "BOULEVARD MOB"
-    ],
-    [
-      "BOUND CHEAPER"
-    ],
-    [
-      "BREAKFAST GOLDFINGER"
-    ],
-    [
-      "BRIDE INTRIGUE"
-    ],
-    [
-      "BRINGING HYSTERICAL"
-    ],
-    [
-      "BROOKLYN DESERT"
-    ],
-    [
-      "BROTHERHOOD BLANKET"
-    ],
-    [
-      "BUCKET BROTHERHOOD"
-    ],
-    [
-      "BUTTERFLY CHOCOLAT"
-    ],
-    [
-      "CALENDAR GUNFIGHT"
-    ],
-    [
-      "CAMELOT VACATION"
-    ],
-    [
-      "CAMPUS REMEMBER"
-    ],
-    [
-      "CANDIDATE PERDITION"
-    ],
-    [
-      "CANDLES GRAPES"
-    ],
-    [
-      "CANYON STOCK"
-    ],
-    [
-      "CAPER MOTIONS"
-    ],
-    [
-      "CARRIE BUNCH"
-    ],
-    [
-      "CASABLANCA SUPER"
-    ],
-    [
-      "CAT CONEHEADS"
-    ],
-    [
-      "CAUSE DATE"
-    ],
-    [
-      "CELEBRITY HORN"
-    ],
-    [
-      "CENTER DINOSAUR"
-    ],
-    [
-      "CHAINSAW UPTOWN"
-    ],
-    [
-      "CHANCE RESURRECTION"
-    ],
-    [
-      "CHARIOTS CONSPIRACY"
-    ],
-    [
-      "CHASING FIGHT"
-    ],
-    [
-      "CHEAPER CLYDE"
-    ],
-    [
-      "CHICKEN HELLFIGHTERS"
-    ],
-    [
-      "CHILL LUCK"
-    ],
-    [
-      "CHOCOLAT HARRY"
-    ],
-    [
-      "CHRISTMAS MOONSHINE"
-    ],
-    [
-      "CIDER DESIRE"
-    ],
-    [
-      "CLASH FREDDY"
-    ],
-    [
-      "CLEOPATRA DEVIL"
-    ],
-    [
-      "CLONES PINOCCHIO"
-    ],
-    [
-      "CLOSER BANG"
-    ],
-    [
-      "CLUB GRAFFITI"
-    ],
-    [
-      "CLUELESS BUCKET"
-    ],
-    [
-      "COAST RAINBOW"
-    ],
-    [
-      "COLOR PHILADELPHIA"
-    ],
-    [
-      "COMA HEAD"
-    ],
-    [
-      "COMFORTS RUSH"
-    ],
-    [
-      "COMMAND DARLING"
-    ],
-    [
-      "CONEHEADS SMOOCHY"
-    ],
-    [
-      "CONFIDENTIAL INTERVIEW"
-    ],
-    [
-      "CONFUSED CANDLES"
-    ],
-    [
-      "CONGENIALITY QUEST"
-    ],
-    [
-      "CONTACT ANONYMOUS"
-    ],
-    [
-      "CONVERSATION DOWNHILL"
-    ],
-    [
-      "CORE SUIT"
-    ],
-    [
-      "CROOKED FROGMEN"
-    ],
-    [
-      "CROSSROADS CASUALTIES"
-    ],
-    [
-      "CUPBOARD SINNERS"
-    ],
-    [
-      "CURTAIN VIDEOTAPE"
-    ],
-    [
-      "DALMATIONS SWEDEN"
-    ],
-    [
-      "DANCING FEVER"
-    ],
-    [
-      "DAWN POND"
-    ],
-    [
-      "DECEIVER BETRAYED"
-    ],
-    [
-      "DEER VIRGINIAN"
-    ],
-    [
-      "DESERT POSEIDON"
-    ],
-    [
-      "DESTINY SATURDAY"
-    ],
-    [
-      "DETAILS PACKER"
-    ],
-    [
-      "DETECTIVE VISION"
-    ],
-    [
-      "DINOSAUR SECRETARY"
-    ],
-    [
-      "DISCIPLE MOTHER"
-    ],
-    [
-      "DISTURBING SCARFACE"
-    ],
-    [
-      "DIVIDE MONSTER"
-    ],
-    [
-      "DOGMA FAMILY"
-    ],
-    [
-      "DOOM DANCING"
-    ],
-    [
-      "DOORS PRESIDENT"
-    ],
-    [
-      "DORADO NOTTING"
-    ],
-    [
-      "DOUBLE WRATH"
-    ],
-    [
-      "DOWNHILL ENOUGH"
-    ],
-    [
-      "DRACULA CRYSTAL"
-    ],
-    [
-      "DRAGONFLY STRANGERS"
-    ],
-    [
-      "DREAM PICKUP"
-    ],
-    [
-      "DRIFTER COMMANDMENTS"
-    ],
-    [
-      "DRIVER ANNIE"
-    ],
-    [
-      "DRIVING POLISH"
-    ],
-    [
-      "DURHAM PANKY"
-    ],
-    [
-      "DYING MAKER"
-    ],
-    [
-      "DYNAMITE TARZAN"
-    ],
-    [
-      "EAGLES PANKY"
-    ],
-    [
-      "EARRING INSTINCT"
-    ],
-    [
-      "EARTH VISION"
-    ],
-    [
-      "EASY GLADIATOR"
-    ],
-    [
-      "EFFECT GLADIATOR"
-    ],
-    [
-      "EGG IGBY"
-    ],
-    [
-      "EGYPT TENENBAUMS"
-    ],
-    [
-      "EMPIRE MALKOVICH"
-    ],
-    [
-      "ENCINO ELF"
-    ],
-    [
-      "ENCOUNTERS CURTAIN"
-    ],
-    [
-      "ENEMY ODDS"
-    ],
-    [
-      "ENGLISH BULWORTH"
-    ],
-    [
-      "ENOUGH RAGING"
-    ],
-    [
-      "ESCAPE METROPOLIS"
-    ],
-    [
-      "EXCITEMENT EVE"
-    ],
-    [
-      "EXPECATIONS NATURAL"
-    ],
-    [
-      "EXPENDABLE STALLION"
-    ],
-    [
-      "EYES DRIVING"
-    ],
-    [
-      "FACTORY DRAGON"
-    ],
-    [
-      "FALCON VOLUME"
-    ],
-    [
-      "FAMILY SWEET"
-    ],
-    [
-      "FANTASIA PARK"
-    ],
-    [
-      "FANTASY TROOPERS"
-    ],
-    [
-      "FARGO GANDHI"
-    ],
-    [
-      "FATAL HAUNTED"
-    ],
-    [
-      "FELLOWSHIP AUTUMN"
-    ],
-    [
-      "FERRIS MOTHER"
-    ],
-    [
-      "FEUD FROGMEN"
-    ],
-    [
-      "FICTION CHRISTMAS"
-    ],
-    [
-      "FIDELITY DEVIL"
-    ],
-    [
-      "FIGHT JAWBREAKER"
-    ],
-    [
-      "FIREBALL PHILADELPHIA"
-    ],
-    [
-      "FISH OPUS"
-    ],
-    [
-      "FLAMINGOS CONNECTICUT"
-    ],
-    [
-      "FLATLINERS KILLER"
-    ],
-    [
-      "FLINTSTONES HAPPINESS"
-    ],
-    [
-      "FLYING HOOK"
-    ],
-    [
-      "FOOL MOCKINGBIRD"
-    ],
-    [
-      "FORRESTER COMANCHEROS"
-    ],
-    [
-      "FORWARD TEMPLE"
-    ],
-    [
-      "FREAKY POCUS"
-    ],
-    [
-      "FREDDY STORM"
-    ],
-    [
-      "FRENCH HOLIDAY"
-    ],
-    [
-      "FROST HEAD"
-    ],
-    [
-      "FURY MURDER"
-    ],
-    [
-      "GABLES METROPOLIS"
-    ],
-    [
-      "GALAXY SWEETHEARTS"
-    ],
-    [
-      "GANDHI KWAI"
-    ],
-    [
-      "GANGS PRIDE"
-    ],
-    [
-      "GARDEN ISLAND"
-    ],
-    [
-      "GASLIGHT CRUSADE"
-    ],
-    [
-      "GENTLEMEN STAGE"
-    ],
-    [
-      "GHOST GROUNDHOG"
-    ],
-    [
-      "GIANT TROOPERS"
-    ],
-    [
-      "GILMORE BOILED"
-    ],
-    [
-      "GLEAMING JAWBREAKER"
-    ],
-    [
-      "GO PURPLE"
-    ],
-    [
-      "GOLDFINGER SENSIBILITY"
-    ],
-    [
-      "GOLDMINE TYCOON"
-    ],
-    [
-      "GOODFELLAS SALUTE"
-    ],
-    [
-      "GORGEOUS BINGO"
-    ],
-    [
-      "GRAFFITI LOVE"
-    ],
-    [
-      "GRAPES FURY"
-    ],
-    [
-      "GREASE YOUTH"
-    ],
-    [
-      "GREATEST NORTH"
-    ],
-    [
-      "GREEK EVERYONE"
-    ],
-    [
-      "GRIT CLOCKWORK"
-    ],
-    [
-      "GROOVE FICTION"
-    ],
-    [
-      "GROUNDHOG UNCUT"
-    ],
-    [
-      "GUN BONNIE"
-    ],
-    [
-      "GUNFIGHT MOON"
-    ],
-    [
-      "HALF OUTFIELD"
-    ],
-    [
-      "HANDICAP BOONDOCK"
-    ],
-    [
-      "HANGING DEEP"
-    ],
-    [
-      "HANKY OCTOBER"
-    ],
-    [
-      "HANOVER GALAXY"
-    ],
-    [
-      "HARPER DYING"
     ]
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
   "order_sensitive": true,
-  "notes": "【已重写并实跑验证】类别平均需两层聚合：内层按电影算租借次数，外层对类别取 AVG；相关子查询按 fc.category_id 对齐；sakila 中每部电影只属于一个类别（film_category 1000 行对 1000 部），按 (film_id, category_id) 分组无歧义；实测 463 部达标",
+  "notes": "【已重写并实跑验证】类别平均需两层聚合：内层按电影算租借次数，外层对类别取 AVG；相关子查询按 fc.category_id 对齐；sakila 中每部电影只属于一个类别（film_category 1000 行对 1000 部），按 (film_id, category_id) 分组无歧义；实测 463 部达标；【v2 修复】原 gold_result 被 max_rows=200 截断（463/200），改为 LIMIT 20 使 gold 完整且确定性",
   "gold_tables": [
     "film",
     "film_category",
@@ -1006,38 +466,169 @@
 {
   "id": "sa-005",
   "db_id": "sakila",
-  "question": "Which 5 films have the highest replacement cost? Return the title and replacement cost; break ties by title in ascending order.",
-  "question_type": "simple",
-  "difficulty": 2,
-  "gold_sql": "SELECT title, replacement_cost FROM film ORDER BY replacement_cost DESC, title LIMIT 5;",
+  "question": "统计每位客户的租借次数，取租借次数最多的前 30 名，返回名、姓和租借次数三列，按租借次数降序。",
+  "question_type": "aggregation",
+  "difficulty": 3,
+  "gold_sql": "SELECT c.first_name, c.last_name, COUNT(r.rental_id) FROM customer c JOIN rental r ON r.customer_id = c.customer_id GROUP BY c.customer_id, c.first_name, c.last_name ORDER BY COUNT(r.rental_id) DESC, c.last_name, c.first_name LIMIT 30;",
   "gold_result": [
     [
-      "ARABIA DOGMA",
-      29.99
+      "ELEANOR",
+      "HUNT",
+      46
     ],
     [
-      "BALLROOM MOCKINGBIRD",
-      29.99
+      "KARL",
+      "SEAL",
+      45
     ],
     [
-      "BLINDNESS GUN",
-      29.99
+      "MARCIA",
+      "DEAN",
+      42
     ],
     [
-      "BONNIE HOLOCAUST",
-      29.99
+      "CLARA",
+      "SHAW",
+      42
     ],
     [
-      "CHARIOTS CONSPIRACY",
-      29.99
+      "TAMMY",
+      "SANDERS",
+      41
+    ],
+    [
+      "WESLEY",
+      "BULL",
+      40
+    ],
+    [
+      "SUE",
+      "PETERS",
+      40
+    ],
+    [
+      "TIM",
+      "CARY",
+      39
+    ],
+    [
+      "RHONDA",
+      "KENNEDY",
+      39
+    ],
+    [
+      "MARION",
+      "SNYDER",
+      39
+    ],
+    [
+      "DAISY",
+      "BATES",
+      38
+    ],
+    [
+      "ELIZABETH",
+      "BROWN",
+      38
+    ],
+    [
+      "TOMMY",
+      "COLLAZO",
+      38
+    ],
+    [
+      "CURTIS",
+      "IRBY",
+      38
+    ],
+    [
+      "JUNE",
+      "CARROLL",
+      37
+    ],
+    [
+      "MARSHA",
+      "DOUGLAS",
+      37
+    ],
+    [
+      "BRANDON",
+      "HUEY",
+      37
+    ],
+    [
+      "ELSIE",
+      "KELLEY",
+      37
+    ],
+    [
+      "RUSSELL",
+      "BRINSON",
+      36
+    ],
+    [
+      "ALEXANDER",
+      "FENNELL",
+      36
+    ],
+    [
+      "ANGELA",
+      "HERNANDEZ",
+      36
+    ],
+    [
+      "JUSTIN",
+      "NGO",
+      36
+    ],
+    [
+      "ROGER",
+      "QUINTANILLA",
+      36
+    ],
+    [
+      "MARGIE",
+      "WADE",
+      36
+    ],
+    [
+      "HARRY",
+      "ARCE",
+      35
+    ],
+    [
+      "ALMA",
+      "AUSTIN",
+      35
+    ],
+    [
+      "BOBBY",
+      "BOUDREAU",
+      35
+    ],
+    [
+      "LOIS",
+      "BUTLER",
+      35
+    ],
+    [
+      "MICHELLE",
+      "CLARK",
+      35
+    ],
+    [
+      "DIANE",
+      "COLLINS",
+      35
     ]
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
   "order_sensitive": true,
-  "notes": "单表 Top-N；陷阱：replacement_cost 最高值 29.99 对应的电影超过 5 部，无次级排序键时并列处顺序不稳定；实测前 5 按标题序取到 CHARIOTS CONSPIRACY",
+  "notes": "并列失分点（实际难度6）：租借35次有13名客户并列，LIMIT30只取6个，并列深度13远大于剩余名额6；题面只写主排序键，模型漏写次级排序键 last_name 时并列行顺序不稳定，几乎必错",
   "gold_tables": [
-    "film"
+    "customer",
+    "rental"
   ]
 }
 {
@@ -1196,9 +787,9 @@
   "order_sensitive": true,
   "notes": "分组聚合 + 标量子查询算占比（分母须用 film 全表计数，模型易误用分组内计数）；Games/Sci-Fi 并列 61、Classics/Travel 并列 57，次级键已加；实测 Sports 74 部 7.4% 居首",
   "gold_tables": [
-    "film_category",
     "category",
-    "film"
+    "film",
+    "film_category"
   ]
 }
 {
@@ -1362,17 +953,17 @@
   "order_sensitive": true,
   "notes": "join + 占比标量子查询；staff 仅 2 人，陷阱是金额平分错觉（50.3/49.7 并非恰好一半）；实测 Jon Stephens 33927.04 (50.3%)",
   "gold_tables": [
-    "staff",
-    "payment"
+    "payment",
+    "staff"
   ]
 }
 {
   "id": "sa-012",
   "db_id": "sakila",
-  "question": "Which actors appeared in more than 30 films? Return first name, last name, and film count, ordered by count descending, then last name, then first name.",
-  "question_type": "join",
-  "difficulty": 2,
-  "gold_sql": "SELECT a.first_name, a.last_name, COUNT(*) AS cnt FROM actor a JOIN film_actor fa ON fa.actor_id = a.actor_id GROUP BY a.actor_id, a.first_name, a.last_name HAVING COUNT(*) > 30 ORDER BY cnt DESC, a.last_name, a.first_name;",
+  "question": "统计每位演员出演过的电影数量，取出演电影数量最多的前 45 位，返回名、姓和出演数量三列，按出演数量降序。",
+  "question_type": "aggregation",
+  "difficulty": 3,
+  "gold_sql": "SELECT a.first_name, a.last_name, COUNT(fa.film_id) FROM actor a JOIN film_actor fa ON fa.actor_id = a.actor_id GROUP BY a.actor_id, a.first_name, a.last_name ORDER BY COUNT(fa.film_id) DESC, a.last_name, a.first_name LIMIT 45;",
   "gold_result": [
     [
       "GINA",
@@ -1598,67 +1189,12 @@
       "WOODY",
       "HOFFMAN",
       31
-    ],
-    [
-      "WOODY",
-      "JOLIE",
-      31
-    ],
-    [
-      "ALBERT",
-      "NOLTE",
-      31
-    ],
-    [
-      "JAMES",
-      "PITT",
-      31
-    ],
-    [
-      "JADA",
-      "RYDER",
-      31
-    ],
-    [
-      "IAN",
-      "TANDY",
-      31
-    ],
-    [
-      "MARY",
-      "TANDY",
-      31
-    ],
-    [
-      "RUSSELL",
-      "TEMPLE",
-      31
-    ],
-    [
-      "DARYL",
-      "WAHLBERG",
-      31
-    ],
-    [
-      "WILL",
-      "WILSON",
-      31
-    ],
-    [
-      "FAY",
-      "WINSLET",
-      31
-    ],
-    [
-      "MINNIE",
-      "ZELLWEGER",
-      31
     ]
   ],
   "expected_behavior": "answer",
   "ambiguous": false,
   "order_sensitive": true,
-  "notes": "多对多关联表 join + HAVING；35 部并列 6 人、34 部并列 5 人，必须带双次级排序键；实测 56 人，GINA DEGENERES 42 部居首",
+  "notes": "并列失分点（实际难度6）：出演31部有16位演员并列，LIMIT45只取5个，并列深度16远大于剩余名额5；题面只写主排序键，模型漏写次级排序键 last_name 时并列行顺序不稳定，几乎必错",
   "gold_tables": [
     "actor",
     "film_actor"
@@ -1730,9 +1266,9 @@
   "order_sensitive": true,
   "notes": "四表 join + 门店过滤 + Top-N；第 3-4 名并列 40 次（BULL/PETERS），第 5-6 名边界并列 39 次（KENNEDY 入选），次级键保证确定性；实测榜首 KARL SEAL（Cape Coral）45 次",
   "gold_tables": [
-    "customer",
     "address",
     "city",
+    "customer",
     "rental"
   ]
 }
@@ -1776,9 +1312,9 @@
   "notes": "四表 join（演员-影片-分类）+ 类别过滤；陷阱：5 部动作片的演员共 5 人，LIMIT 5 只取其中 4 人（AKROYD/CHASE/GARLAND/GUINESS），无次级键时结果不稳定；实测榜首 NATALIE HOPKINS 6 部",
   "gold_tables": [
     "actor",
+    "category",
     "film_actor",
-    "film_category",
-    "category"
+    "film_category"
   ]
 }
 {
@@ -1904,8 +1440,8 @@
   "notes": "分组 HAVING 与标量子查询比较（全库平均 115.27 分钟）；Comedy 115.8 仅以 0.5 分钟压线，模型若错把分母写成类别内自比较会漏掉它；实测 5 个类别达标，Sports 128.2 居首",
   "gold_tables": [
     "category",
-    "film_category",
-    "film"
+    "film",
+    "film_category"
   ]
 }
 {
