@@ -358,46 +358,218 @@ python -m src.datapilot.obs.trace_viewer experiments/trace/demo.jsonl
 # 预期：question 事件 + 若干条 llm_call（generate/verify/compose），各带 model/token/cost/ms
 ```
 
-## 4. Demo + 工程化（2 小时，可砍的部分）
 
-### 4.1 Streamlit 单页（`app.py`，< 100 行）
 
-输入框 → 调 `graph_answer_a3`（或 a4）→ 展示 answer_text + SQL + 结果表 + 耗时/成本。**用 `st.session_state` 存一个线程，避免每次 rerun 重构图。**
-
-```python
-import streamlit as st
-from src.datapilot.pipelines.a3 import graph_answer_a3
-from src.datapilot.eval.eval_config import load_eval_config
-
-st.title("DataPilot — 数据分析 Agent")
-q = st.text_input("问点什么：", "每个国家客户总消费额前 5 名")
-if st.button("执行") and q:
-    cfg = load_eval_config("a3")
-    out = graph_answer_a3({"question": q, "db_id": "chinook",
-                           "difficulty": 3, "id": "demo"}, cfg=cfg)
-    st.markdown(f"**结论**：{out.get('answer_text')}")
-    st.code(out.get("sql"), language="sql")
-    st.write(f"耗时 {out.get('extra', {}).get('latency_ms', 0)}ms · "
-             f"成本 ¥{out.get('cost_cny', 0):.5f}")
+```shell
+foreach ($cfg in 'a0','a1','a2','a3','a4') {
+  python -m src.datapilot.cli eval --config $cfg --dataset data/benchmarks/ecommerce_v0.jsonl --run-id "v2_ecommerce_$cfg"
+  python -m src.datapilot.cli eval --config $cfg --dataset data/benchmarks/sakila_v0.jsonl    --run-id "v2_sakila_$cfg"
+  python -m src.datapilot.cli eval --config $cfg --dataset data/benchmarks/chinook_v0.jsonl   --run-id "v2_chinook_$cfg"
+}
 ```
 
-> 依赖：`uv add streamlit`。**不加也能交付**（README 里写清楚 Demo 是 CLI 的 `ask` 命令），Streamlit 是加分项不是底线。
+
+
+
+
+## 4. Demo + 工程化（2 小时，可砍的部分）
+
+> 总手册 Day 6 的既定主线：让项目能在一台干净机器上跑起来、能现场演示。**注意**：本仓库 `README.md` 目前是 0 字节，所以 §4.3 的 README 其实是"必须做"而非"可砍"——它是 §5 验收清单里明确要交的。
+
+### 4.1 Streamlit 单页（`app.py`）
+
+输入框 → 调 `graph_answer_a3` → 展示「结论 + SQL + 结果表 + 耗时/成本」。**用 `st.session_state` 缓存图和 client，避免每次点按钮（rerun）都重新构图。**
+
+先加依赖（用 uv，因为本项目依赖就是 uv 管理的）：
+
+```bash
+uv add streamlit
+```
+
+完整 `app.py`（放在项目根目录）：
+
+```python
+"""DataPilot 网页 Demo：Streamlit 单页。
+跑法：streamlit run app.py
+"""
+import time
+
+import streamlit as st
+
+from src.datapilot.eval.eval_config import load_eval_config
+from src.datapilot.pipelines.a3 import graph_answer_a3
+
+st.set_page_config(page_title="DataPilot", layout="wide")
+st.title("DataPilot — 数据分析 Agent")
+
+# 三个库可切换，默认 chinook（评测集里最经典、表少好讲）
+db = st.sidebar.selectbox("数据库", ["chinook", "sakila", "ecommerce"])
+q = st.text_input("问点什么：", "每个国家客户总消费额前 5 名")
+
+# ★ 用 session_state 缓存 config，避免每次 rerun 重新 load（load 会读 yaml + 算指纹）
+if "cfg" not in st.session_state:
+    st.session_state.cfg = load_eval_config("a3")
+
+if st.button("执行", type="primary") and q:
+    t0 = time.perf_counter()
+    with st.spinner("Agent 思考中…"):
+        # graph_answer_a3(q, client=None, cfg=None) → dict（含 answer_text/sql/rows/columns/...）
+        out = graph_answer_a3(
+            {"question": q, "db_id": db, "difficulty": 3, "id": "demo"},
+            cfg=st.session_state.cfg,
+        )
+    elapsed = (time.perf_counter() - t0) * 1000
+
+    # ① 结论（Day 6 刚补的自然语言结论，这是 Demo 的灵魂）
+    st.markdown("### 结论")
+    st.markdown(f"> {out.get('answer_text') or '（无结论）'}")
+
+    # ② SQL
+    st.markdown("### SQL")
+    st.code(out.get("sql") or "", language="sql")
+
+    # ③ 结果表（有 rows/columns 才渲染）
+    rows = out.get("rows")
+    cols = out.get("columns")
+    st.markdown("### 结果")
+    if rows and cols:
+        import pandas as pd
+        st.dataframe(pd.DataFrame(rows, columns=cols))
+    elif rows is None:
+        st.info(f"未返回结果集（status={out.get('status')}，behavior={out.get('behavior')}）")
+
+    # ④ 成本/调用次数（可观测，面试能讲"每次问答花了多少钱"）
+    st.caption(
+        f"status={out.get('status')} · llm_calls={out.get('llm_calls')} · "
+        f"cost=¥{out.get('cost_cny', 0):.5f} · 总耗时 {elapsed:.0f}ms"
+    )
+```
+
+> **为什么用 `st.session_state` 缓存 cfg 而不是图**：`graph_answer_a3` 内部每次 invoke 都会 `build_graph`（因为 checkpoint 要按线程隔离，不能复用同一个图实例的 state）。所以这里只缓存 `cfg`（load 一次即可），图本身每次提问重建——这跟评测链路的并发安全设计一致，不要"优化"成全局复用图。
 
 ### 4.2 Dockerfile（一键起）
 
+目标：换一台干净机器 `docker build && docker run` 能起，且 `ask` 命令能跑。
+
+`.dockerignore`（新建，避免把 `.env`、`.venv`、实验产物打进镜像）：
+
+```dockerignore
+.venv
+__pycache__
+*.py[co]
+.env
+.git
+experiments
+reports
+checkpoints*.db*
+.pytest_cache
+.ruff_cache
+```
+
+`Dockerfile`（项目根目录）：
+
 ```dockerfile
-FROM python:3.13-slim
+# 用 uv 官方镜像，避免在容器里再装 uv（本项目 pyproject 的 build-backend 是 uv_build）
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+
 WORKDIR /app
+
+# 先只拷依赖声明，充分利用 Docker 层缓存（依赖不变就不重装）
 COPY pyproject.toml ./
 COPY src ./src
 COPY data ./data
 COPY eval ./eval
-RUN pip install -e .
+
+# 用 uv 装依赖 + 以可编辑模式装本项目（uv 会读 pyproject 的 [tool.uv.index] 走清华源）
+RUN uv pip install --system -e .
+
 EXPOSE 8501
-CMD ["streamlit", "run", "app.py"]
+
+# 默认起 Streamlit；想进 CLI 就 docker run ... bash 覆盖 CMD
+CMD ["streamlit", "run", "app.py", "--server.address", "0.0.0.0"]
 ```
 
-> 验收：换一台机器 `docker build && docker run -p 8501:8501` 能起，`ask` 命令能跑。**若时间不够，Docker 可砍，但 README 的"快速开始"必须能在一台干净机器上复现。**
+> ⚠️ **三个必须注意的点**：
+> 1. **`.env` 不能 COPY 进镜像**（含 api_key，且已被 gitignore）。运行时用 `--env-file` 注入：`docker run -p 8501:8501 --env-file .env datapilot`。
+> 2. **数据要打进去**：`data/dbs/*.db` 三个库必须 `COPY data ./data`，否则容器里查不到表。
+> 3. **`--server.address 0.0.0.0`** 必加，否则容器内 Streamlit 只监听 127.0.0.1，宿主机访问不到。
+
+构建 + 运行：
+
+```bash
+docker build -t datapilot .
+docker run -p 8501:8501 --env-file .env datapilot
+# 浏览器打开 http://localhost:8501
+# 想验证 CLI 也能跑：
+docker run --rm --env-file .env datapilot python -m src.datapilot.cli ask "每个国家客户总消费额前 5 名"
+```
+
+### 4.3 README 快速开始（必须做，README 目前 0 字节）
+
+§5 验收清单明确要求"README 快速开始可复现"，而本仓库 `README.md` 是 0 字节。写一个能让人 5 分钟上手的（下面用四反引号包裹，是为了让 README 里的 bash 代码块不跟手册的代码块冲突）：
+
+````markdown
+# DataPilot — Text-to-SQL 数据分析 Agent 评测框架
+
+用「评测先行 + 消融矩阵」的方法，逐步把一条最朴素的 Text-to-SQL 基线（A0）
+演进成带检索、修复环、gate/verifier、缓存路由的可靠 Agent（A4），
+并在三个库（chinook / sakila / 自建 ecommerce）上量化每个组件的收益与代价。
+
+## 快速开始
+
+```bash
+# 1. 装依赖（需要 uv；会读 pyproject 里的清华源）
+uv sync
+
+# 2. 配置模型（复制 .env 模板填 api_key / base_url / model）
+cp .env.example .env   # 若没有 example，直接建 .env 填下面三个键
+#   DP_API_KEY=sk-xxx
+#   DP_BASE_URL=https://...
+#   DP_MODEL=qwen3.8-flash
+
+# 3. 跑一条单题提问（走 A3 全链路：检索 + gate + 修复环 + 结论）
+uv run python -m src.datapilot.cli ask "每个国家客户总消费额前 5 名"
+
+# 4. 跑评测（--limit 1 先冒烟，去掉则全量）
+uv run python -m src.datapilot.cli eval --config a3 --dataset data/benchmarks/chinook_v0.jsonl --limit 1
+
+# 5. 看调用链（可观测）
+uv run python -m src.datapilot.cli ask "..." --trace experiments/trace/demo.jsonl
+uv run python -m src.datapilot.obs.trace_viewer experiments/trace/demo.jsonl
+```
+
+## 目录结构
+
+- `src/datapilot/` — 核心代码（`pipelines/` 五档配置、`nodes/` 图节点、`eval/` 评测、`obs/` 可观测）
+- `data/benchmarks/` — 三库评测集（.jsonl + glossary）
+- `data/dbs/` — 三个 SQLite 库
+- `eval/configs/` — a0~a4 的 YAML 配置
+- `experiments/runs/` — 评测结果（按 `{库}_{配置}` 命名）
+- `reports/` — 消融报告、抽评表
+- `docs/` — 总手册 + Day 1~6 分日手册 + 日报
+````
+
+> 若 `.env.example` 不存在，建一个（只含键名、不含真实值，这样能安全提交 git）：
+
+```bash
+# .env.example（提交用，不含真实密钥）
+DP_API_KEY=
+DP_BASE_URL=https://ws-gyn12735a009oqcg.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+DP_MODEL=qwen3.8-flash
+DP_MODEL_SMALL=qwen3.7-flash
+```
+
+### 4.4 验收
+
+```bash
+# Streamlit：本机能起，能问、能出结论 + SQL + 表 + 成本
+streamlit run app.py
+
+# Docker：换机器能起（若时间不够可砍，但 README 快速开始必须能复现）
+docker build -t datapilot . && docker run -p 8501:8501 --env-file .env datapilot
+
+# README：git 里 README 不再是 0 字节，按它的步骤能在一台干净机器跑通 ask
+```
 
 ## 5. 收尾验收清单
 

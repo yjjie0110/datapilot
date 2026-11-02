@@ -14,6 +14,7 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "rich>=15.0.0",
     "sqlglot>=30.22.0",
+    "streamlit>=1.66.1",
     "tenacity>=9.2.1",
     "typer>=0.27.3",
 ]
