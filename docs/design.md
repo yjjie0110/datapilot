@@ -130,3 +130,4 @@ gate 对危险 SQL（写操作）和超纲问题直接 `refuse`，而不是让�
 - **枚举值没进 schema**：`status='on'`、`active=1/0` 这类取值模型猜错，是反复出现的系统性短板，根治是 schema 枚举值采样（Day 2 搁置、Day 5 复发）。
 - **排序并列（tie-breaker）**：模型在 RANK/ROW_NUMBER 间摇摆，已用 prompt 硬规则压制，但这是 Text-to-SQL 的系统性难点。
 - **小样本波动**：1 题 = ±4pt，所有"增益"都要在这个噪声下解读。
+

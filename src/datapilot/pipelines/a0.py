@@ -78,8 +78,7 @@ def a0_answer(q: dict, client: LLMClient | None = None) -> dict:
     r = client.chat_json(SYSTEM, user)
 
     try:
-        # 将模型LLM 输出的格式严格成JSON 格式，包括：
-        #
+        # 将模型LLM 输出的格式严格成JSON 格式
         payload = extract_json(r.text)
     except Exception as e:
         # 解析失败 → status="parse_error"，不抛异常，返回结构化失败记录；

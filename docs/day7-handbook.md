@@ -213,14 +213,14 @@ Day 5 三库实测 verify_fixed 全 0（LLM judge 零收益），但买到了 0 
 
 ## 6. 收尾验收清单
 
-- [ ] `reports/ablation.md` 统一到 v2 数据（ecommerce_a0 = 88.4%）
-- [ ] ecommerce headroom 决策已拍板（推荐方案 A，design.md 里写了诚实标注）
-- [ ] review_sheet 30 条勾完，错误自信率数字已产出
-- [ ] `docs/design.md` 填实（8 页内，每节有数字/run_id）
-- [ ] `docs/failure_cases.md` 填 3 个真实案例
-- [ ] `README.md` 不再是 0 字节，含结果表 + 架构图 + 快速开始
-- [ ] 简历 bullet 写 3-4 条（真实数字）
-- [ ] 面试自问 20 题，各题 3 分钟内能讲完
+- [x] `reports/ablation.md` 统一到 v2 数据（ecommerce_a0 = 88.4%）
+- [x] ecommerce headroom 决策已拍板（推荐方案 A，design.md 里写了诚实标注）
+- [x] review_sheet 30 条勾完，错误自信率数字已产出（2/30 ≈ 6.7%）
+- [x] `docs/design.md` 填实（8 页内，每节有数字/run_id）
+- [x] `docs/failure_cases.md` 填 3 个真实案例
+- [x] `README.md` 不再是 0 字节，含结果表 + 架构图 + 快速开始
+- [x] 简历 bullet 写 3-4 条（真实数字，见 §5.1）
+- [x] 面试自问 20 题，各题 3 分钟内能讲完（参考答案见 `docs/interview_qa_20.md`）
 - [ ] 录音讲一遍，计时 12 分钟
 
 ## 7. 砍单顺序（时间不够时）

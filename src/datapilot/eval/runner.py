@@ -24,6 +24,7 @@ _write_lock = Lock()
 
 # 读 JSONL
 # 一次读入内存。对评测数据集（通常几百到几千条）足够；若换成百万级需改成流式
+# return: [dict, dict]
 def load_dataset(path: str | Path) -> list[dict]:
     p = Path(path)
     return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
@@ -77,6 +78,7 @@ def score_one(q: dict, pipeline_fn: Callable[[dict], dict]) -> dict:
     try:
         # return {"status": ,"sql": ,"tables_used": ,"assumptions": ,"rows": ,"columns": ,"error": ,
         #           "error_code": ,"behavior": ,"llm_calls": ,"cost_cny": ,}
+        # a2-a4 新增"extra": {"first_rows": , "verify": , ...}
         out = pipeline_fn(q)
         err = None
     except Exception as e:
@@ -211,13 +213,13 @@ def run_eval(
                 f"请换一个 run_id，或删除 {run_dir}。"
             )
 
-    done: set[str] = set()
+    done: set[str] = set()  # 用于存放result 中已有的id
     if res_path.exists():  # 读已有 results.jsonl，收集已完成的 id
         for line in res_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 done.add(json.loads(line)["id"])
 
-    # 读取数据集chinook_v0.jsonl 中的每一行
+    # 读取数据集chinook_v0.jsonl 中的每一行，items: [dict, dict, ...]
     items = [q for q in load_dataset(dataset_path) if q["id"] not in done]
     if limit:  # 截取前limit 条
         items = items[:limit]
@@ -251,6 +253,7 @@ def run_eval(
         ) as sink:
             # 对 items 中每道题 q，提交一个任务到线程池执行 score_one(q, pipeline_fn)
             # ⚠️ 潜在风险：如果 items 极大（几十万），所有任务会一次性入队，Future 对象也全部驻留内存。更稳健的写法是用 executor.map 或分批提交
+            # futures: [dict, dict, ...]
             futures = [pool.submit(score_one, q, pipeline_fn) for q in items]
 
             # as_completed(futures)是一个生成器，按任务完成的先后顺序 yield 出 Future（不是提交顺序！）

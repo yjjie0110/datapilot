@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 RUNS = [
-    (c, db, f"v2_{db}_{c}")
+    (c, db, f"{db}_{c}")
     for db in ("chinook", "sakila", "ecommerce")
     for c in ("a0", "a1", "a2", "a3", "a4")
 ]
@@ -59,7 +59,7 @@ def main() -> None:
                     cells.append(str(v))
             lines.append(f"| {cfg_name} | " + " | ".join(cells) + " |")
         lines.append("")
-    out = Path("reports/v2_ablation.md")
+    out = Path("reports/ablation.md")
     out.write_text("\n".join(lines), encoding="utf-8")
     print("报告：", out.resolve())
 
