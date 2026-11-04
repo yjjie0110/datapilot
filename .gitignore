@@ -19,3 +19,5 @@ experiments
 .ruff_cache/
 *.log
 checkpoints*.db*
+
+.workbuddy
